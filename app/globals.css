@@ -875,6 +875,39 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   background: none !important;
 }
 
+/* ─── Private Messages (DMs) ─────────────────────────────────────────────────── */
+.dm-start-btn {
+  background: none !important;
+  border: 1px solid #d8d8d8 !important;
+  color: #555 !important;
+  font-size: 0.78rem !important;
+  font-weight: 500 !important;
+  padding: 0.3rem 0.65rem !important;
+  border-radius: 4px !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+  transition: border-color 0.1s !important, color 0.1s !important;
+}
+
+.dm-start-btn:hover {
+  border-color: #0d0d0d !important;
+  color: #0d0d0d !important;
+  background: none !important;
+}
+
+.dm-msg {
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 4px;
+  margin: 1px 0;
+  border-bottom: none !important;
+}
+
+.dm-msg--sent {
+  background: #f5f5f5;
+  text-align: right;
+}
+
 /* ─── Errors & info ──────────────────────────────────────────────────────────── */
 .error-text {
   color: #c0392b;

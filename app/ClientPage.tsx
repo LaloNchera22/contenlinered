@@ -53,7 +53,16 @@ type SessionMessage = {
   username: string
 }
 
-type Section = 'communities' | 'friends' | 'explore' | 'presence' | 'profile' | 'settings'
+type PrivateMessage = {
+  id: string
+  sender_id: string
+  receiver_id: string
+  content: string
+  created_at: string
+  username: string
+}
+
+type Section = 'communities' | 'friends' | 'messages' | 'explore' | 'presence' | 'profile' | 'settings'
 
 // ─── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -164,6 +173,14 @@ const IcoPresence = ({ size = 20 }: IcoProps) => (
   </Ico>
 )
 
+const IcoMessages = ({ size = 20 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    <line x1="9" y1="10" x2="15" y2="10" />
+    <line x1="9" y1="14" x2="12" y2="14" />
+  </Ico>
+)
+
 // ─── TopBar ──────────────────────────────────────────────────────────────────────
 
 function TopBar({
@@ -198,6 +215,7 @@ function TopBar({
 const NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => ReactNode }[] = [
   { section: 'communities', label: 'Comunidades', Icon: IcoCommunities },
   { section: 'friends',     label: 'Amigos',      Icon: IcoFriends },
+  { section: 'messages',    label: 'Mensajes',    Icon: IcoMessages },
   { section: 'explore',     label: 'Explorar',    Icon: IcoExplore },
   { section: 'presence',    label: 'Presencia',   Icon: IcoPresence },
   { section: 'profile',     label: 'Perfil',      Icon: IcoProfile },
@@ -702,6 +720,97 @@ function PresenceSection({
   )
 }
 
+function MessagesSection({
+  users,
+  currentUserId,
+  activeDm,
+  setActiveDm,
+  dmMessages,
+  dmInput,
+  setDmInput,
+  sendDm,
+  dmEndRef,
+}: {
+  users: AppUser[]
+  currentUserId: string
+  activeDm: AppUser | null
+  setActiveDm: (u: AppUser | null) => void
+  dmMessages: PrivateMessage[]
+  dmInput: string
+  setDmInput: (v: string) => void
+  sendDm: (e: FormEvent) => void
+  dmEndRef: React.RefObject<HTMLLIElement | null>
+}) {
+  if (activeDm) {
+    return (
+      <div>
+        <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button className="presence-back-btn" onClick={() => setActiveDm(null)} title="Volver">←</button>
+          <span>@{activeDm.username}</span>
+        </div>
+
+        <ul className="messages-list">
+          {dmMessages.length === 0 && (
+            <li style={{ color: '#ccc', fontSize: '0.8rem', fontStyle: 'italic', border: 'none' }}>
+              Escribe el primer mensaje…
+            </li>
+          )}
+          {dmMessages.map(m => (
+            <li
+              key={m.id}
+              className={m.sender_id === currentUserId ? 'dm-msg dm-msg--sent' : 'dm-msg'}
+            >
+              <strong>{m.username}</strong>: {m.content}
+            </li>
+          ))}
+          <li ref={dmEndRef} />
+        </ul>
+
+        <form className="inline-form" onSubmit={sendDm}>
+          <input
+            type="text"
+            placeholder="Escribe un mensaje privado…"
+            value={dmInput}
+            onChange={e => setDmInput(e.target.value)}
+            autoFocus
+          />
+          <button type="submit" disabled={!dmInput.trim()}>Enviar</button>
+        </form>
+      </div>
+    )
+  }
+
+  const otherUsers = users.filter(u => u.id !== currentUserId)
+
+  return (
+    <div>
+      <div className="section-title">Mensajes Privados</div>
+      {otherUsers.length === 0 ? (
+        <p style={{ fontSize: '0.85rem', color: '#bbb' }}>No hay otros usuarios aún.</p>
+      ) : (
+        <>
+          <h2>{otherUsers.length} {otherUsers.length === 1 ? 'persona' : 'personas'}</h2>
+          {otherUsers.map(u => (
+            <div key={u.id} className="friend-item">
+              <div className="friend-avatar">{u.username.charAt(0).toUpperCase()}</div>
+              <div className="friend-info">
+                <div className="friend-name">{u.username}</div>
+                {u.public_status
+                  ? <div className="friend-status">{u.public_status}</div>
+                  : <div className="friend-status" style={{ color: '#d8d8d8' }}>Sin estado</div>
+                }
+              </div>
+              <button className="dm-start-btn" onClick={() => setActiveDm(u)}>
+                Mensaje →
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
 function SettingsSection({ session, onLogout }: { session: Session; onLogout: () => void }) {
   return (
     <div>
@@ -894,6 +1003,11 @@ function App({ session }: { session: Session }) {
   const searchRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+
+  const [activeDm, setActiveDm] = useState<AppUser | null>(null)
+  const [dmMessages, setDmMessages] = useState<PrivateMessage[]>([])
+  const [dmInput, setDmInput] = useState('')
+  const dmEndRef = useRef<HTMLLIElement>(null)
 
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([])
   const [allSessionMembers, setAllSessionMembers] = useState<{ session_id: string; user_id: string }[]>([])
@@ -1163,6 +1277,73 @@ function App({ session }: { session: Session }) {
     sessionEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [sessionMessages])
 
+  // ── Load private messages + real-time ──────────────────────────────────────
+
+  useEffect(() => {
+    if (!activeDm) {
+      setDmMessages([])
+      return
+    }
+
+    type RawDm = {
+      id: string
+      sender_id: string
+      receiver_id: string
+      content: string
+      created_at: string
+      users: { username: string } | { username: string }[] | null
+    }
+
+    async function fetchDms() {
+      const { data } = await supabase
+        .from('private_messages')
+        .select('id, sender_id, receiver_id, content, created_at, users!private_messages_sender_id_fkey(username)')
+        .or(`and(sender_id.eq.${session.user.id},receiver_id.eq.${activeDm!.id}),and(sender_id.eq.${activeDm!.id},receiver_id.eq.${session.user.id})`)
+        .order('created_at', { ascending: true })
+        .limit(100) as { data: RawDm[] | null }
+      if (data) {
+        setDmMessages(data.map(m => ({
+          id: m.id,
+          sender_id: m.sender_id,
+          receiver_id: m.receiver_id,
+          content: m.content,
+          created_at: m.created_at,
+          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.sender_id,
+        })))
+      }
+    }
+
+    fetchDms()
+
+    const channel = supabase
+      .channel(`dm-${[session.user.id, activeDm.id].sort().join('-')}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'private_messages' },
+        async payload => {
+          const row = payload.new as { id: string; sender_id: string; receiver_id: string; content: string; created_at: string }
+          const isRelevant =
+            (row.sender_id === session.user.id && row.receiver_id === activeDm!.id) ||
+            (row.sender_id === activeDm!.id && row.receiver_id === session.user.id)
+          if (!isRelevant) return
+          const { data: ud } = await supabase.from('users').select('username').eq('id', row.sender_id).single()
+          setDmMessages(prev => {
+            if (prev.some(m => m.id === row.id)) return prev
+            return [...prev, { ...row, username: ud?.username ?? row.sender_id }]
+          })
+        },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [activeDm, supabase, session.user.id])
+
+  // ── Scroll to bottom on DM messages ────────────────────────────────────────
+
+  useEffect(() => {
+    dmEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [dmMessages])
+
   // ── Send message ────────────────────────────────────────────────────────────
 
   async function startRecording() {
@@ -1252,6 +1433,20 @@ function App({ session }: { session: Session }) {
       content: content || '',
       attachment_url,
       attachment_type,
+    })
+  }
+
+  // ── Send private message ─────────────────────────────────────────────────
+
+  async function sendDm(e: FormEvent) {
+    e.preventDefault()
+    const content = dmInput.trim()
+    if (!content || !activeDm) return
+    setDmInput('')
+    await supabase.from('private_messages').insert({
+      sender_id: session.user.id,
+      receiver_id: activeDm.id,
+      content,
     })
   }
 
@@ -1350,6 +1545,7 @@ function App({ session }: { session: Session }) {
 
   function handleSectionChange(s: Section) {
     if (activeSession && s !== 'presence') setActiveSession(null)
+    if (s !== 'messages') setActiveDm(null)
     setActiveSection(s)
   }
 
@@ -1394,6 +1590,19 @@ function App({ session }: { session: Session }) {
           )}
           {activeSection === 'friends' && (
             <FriendsSection users={users} currentUserId={session.user.id} />
+          )}
+          {activeSection === 'messages' && (
+            <MessagesSection
+              users={users}
+              currentUserId={session.user.id}
+              activeDm={activeDm}
+              setActiveDm={setActiveDm}
+              dmMessages={dmMessages}
+              dmInput={dmInput}
+              setDmInput={setDmInput}
+              sendDm={sendDm}
+              dmEndRef={dmEndRef}
+            />
           )}
           {activeSection === 'profile' && (
             <ProfileSection
