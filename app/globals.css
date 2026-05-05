@@ -163,17 +163,17 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 /* ─── Sidebar ────────────────────────────────────────────────────────────────── */
 .sidebar {
   width: 52px;
-  background: #0a0a0a;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
-  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  border-right: 1px solid #1a1a1a;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-right: 1px solid #e5e5e5;
   z-index: 10;
 }
 
-.sidebar--open { width: 210px; }
+.sidebar:hover { width: 210px; }
 
 /* Override all button defaults inside sidebar */
 .sidebar button {
@@ -186,19 +186,6 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   letter-spacing: normal;
   transition: color 0.15s, background 0.15s;
 }
-
-.sidebar-toggle {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  min-width: 52px;
-  height: 52px;
-  color: #4a4a4a !important;
-  flex-shrink: 0;
-}
-
-.sidebar-toggle:hover { color: #aaa !important; }
 
 .sidebar-nav {
   flex: 1;
@@ -215,7 +202,7 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   width: 100%;
   height: 44px;
   padding: 0 0 0 16px !important;
-  color: #4a4a4a !important;
+  color: #111111 !important;
   font-size: 0.83rem !important;
   font-weight: 500 !important;
   white-space: nowrap;
@@ -226,17 +213,17 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 .sidebar-item:hover {
-  background: #161616 !important;
-  color: #c8c8c8 !important;
+  background: #f0f0f0 !important;
+  color: #000000 !important;
 }
 
 .sidebar-item--active {
-  color: #ffffff !important;
-  background: #1c1c1c !important;
+  color: #000000 !important;
+  background: #e8e8e8 !important;
 }
 
 .sidebar-item--active:hover {
-  background: #222 !important;
+  background: #ddd !important;
 }
 
 .sidebar-label {
@@ -247,7 +234,7 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 .sidebar-bottom {
-  border-top: 1px solid #161616;
+  border-top: 1px solid #e5e5e5;
   padding: 6px 0 10px;
 }
 
@@ -256,10 +243,16 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   align-items: center;
   gap: 9px;
   padding: 7px 16px;
-  color: #3a3a3a;
+  color: #555555;
   font-size: 0.75rem;
   white-space: nowrap;
   overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sidebar:hover .sidebar-user {
+  opacity: 1;
 }
 
 .sidebar-user-dot {
@@ -273,12 +266,12 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 .sidebar-user-name {
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #555;
+  color: #444;
 }
 
 .sidebar-item--logout:hover {
   color: #e74c3c !important;
-  background: #140606 !important;
+  background: #fff0f0 !important;
 }
 
 /* ─── Content Area ───────────────────────────────────────────────────────────── */

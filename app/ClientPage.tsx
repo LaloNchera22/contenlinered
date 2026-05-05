@@ -52,11 +52,6 @@ function Ico({ size = 20, children }: { size?: number; children: ReactNode }) {
   )
 }
 
-const IcoMenu = ({ size = 20 }: IcoProps) => (
-  <Ico size={size}>
-    <path d="M4 6h16M4 12h16M4 18h16" />
-  </Ico>
-)
 
 const IcoCommunities = ({ size = 20 }: IcoProps) => (
   <Ico size={size}>
@@ -113,26 +108,18 @@ const NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => React
 ]
 
 function Sidebar({
-  isOpen,
   activeSection,
-  onToggle,
   onSectionChange,
   onLogout,
   username,
 }: {
-  isOpen: boolean
   activeSection: Section
-  onToggle: () => void
   onSectionChange: (s: Section) => void
   onLogout: () => void
   username: string
 }) {
   return (
-    <aside className={`sidebar${isOpen ? ' sidebar--open' : ''}`}>
-      <button className="sidebar-toggle" onClick={onToggle} title="Menú">
-        <IcoMenu />
-      </button>
-
+    <aside className="sidebar">
       <nav className="sidebar-nav">
         {NAV_ITEMS.map(({ section, label, Icon }) => (
           <button
@@ -148,12 +135,10 @@ function Sidebar({
       </nav>
 
       <div className="sidebar-bottom">
-        {isOpen && (
-          <div className="sidebar-user">
-            <span className="sidebar-user-dot" />
-            <span className="sidebar-user-name">{username}</span>
-          </div>
-        )}
+        <div className="sidebar-user">
+          <span className="sidebar-user-dot" />
+          <span className="sidebar-user-name">{username}</span>
+        </div>
         <button
           className="sidebar-item sidebar-item--logout"
           onClick={onLogout}
@@ -505,7 +490,6 @@ function AuthPanel() {
 function App({ session }: { session: Session }) {
   const supabase = getSupabaseBrowserClient()
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('communities')
 
   const [users, setUsers] = useState<AppUser[]>([])
@@ -683,7 +667,6 @@ function App({ session }: { session: Session }) {
 
   function handleSectionChange(s: Section) {
     setActiveSection(s)
-    setSidebarOpen(false)
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -691,9 +674,7 @@ function App({ session }: { session: Session }) {
   return (
     <div className="app-shell">
       <Sidebar
-        isOpen={sidebarOpen}
         activeSection={activeSection}
-        onToggle={() => setSidebarOpen(prev => !prev)}
         onSectionChange={handleSectionChange}
         onLogout={handleLogout}
         username={currentUser?.username ?? session.user.email ?? ''}
