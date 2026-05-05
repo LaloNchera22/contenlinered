@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent, Component, ReactNode } from 'react'
 import { Session } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
@@ -409,9 +409,32 @@ function App({ session }: { session: Session }) {
   )
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
+// ─── Error Boundary ───────────────────────────────────────────────────────────
 
-export default function ClientPage() {
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <main>
+          <h1>Error al iniciar la aplicación</h1>
+          <p>{this.state.error.message}</p>
+        </main>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// ─── Root (inner) ─────────────────────────────────────────────────────────────
+
+function AppRoot() {
   const supabase = getSupabaseBrowserClient()
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -432,4 +455,14 @@ export default function ClientPage() {
   if (loading) return <main><p>Cargando…</p></main>
 
   return session ? <App session={session} /> : <AuthPanel />
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export default function ClientPage() {
+  return (
+    <ErrorBoundary>
+      <AppRoot />
+    </ErrorBoundary>
+  )
 }
