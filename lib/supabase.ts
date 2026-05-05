@@ -1,5 +1,4 @@
-import { createBrowserClient, createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createBrowserClient } from '@supabase/ssr'
 
 export type Database = {
   public: {
@@ -13,7 +12,22 @@ export type Database = {
           created_at: string
           updated_at: string
         }
-        Update: Partial<Omit<Database['public']['Tables']['users']['Row'], 'id'>>
+        Insert: {
+          id: string
+          username: string
+          public_status?: string
+          status_score?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          username?: string
+          public_status?: string
+          status_score?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       communities: {
         Row: {
@@ -22,6 +36,18 @@ export type Database = {
           topic_vector: number[] | null
           created_at: string
         }
+        Insert: {
+          id?: string
+          name: string
+          topic_vector?: number[] | null
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          topic_vector?: number[] | null
+          created_at?: string
+        }
+        Relationships: []
       }
       memberships: {
         Row: {
@@ -29,6 +55,17 @@ export type Database = {
           community_id: string
           joined_at: string
         }
+        Insert: {
+          user_id: string
+          community_id: string
+          joined_at?: string
+        }
+        Update: {
+          user_id?: string
+          community_id?: string
+          joined_at?: string
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -39,12 +76,33 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          id?: string
           community_id: string
           user_id: string
           content: string
+          created_at?: string
         }
+        Update: {
+          community_id?: string
+          user_id?: string
+          content?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
 
@@ -59,28 +117,4 @@ export function getSupabaseBrowserClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
   return browserClient
-}
-
-// ─── Server client ────────────────────────────────────────────────────────────
-// Call inside Server Components, Server Actions, and Route Handlers.
-// Reads/writes cookies to propagate the session automatically.
-export async function getSupabaseServerClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          )
-        },
-      },
-    },
-  )
 }

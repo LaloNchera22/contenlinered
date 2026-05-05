@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getSupabaseServerClient } from '@/lib/supabase'
+import { getSupabaseServerClient } from '@/lib/supabase-server'
 
 export type UpdateStatusResult =
   | { success: true }
