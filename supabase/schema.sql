@@ -33,6 +33,10 @@ create table if not exists public.messages (
 create index if not exists messages_community_created_idx
   on public.messages (community_id, created_at asc);
 
+-- Enable Realtime for messages (required for postgres_changes subscriptions)
+alter table public.messages replica identity full;
+alter publication supabase_realtime add table public.messages;
+
 -- Auto-update updated_at on users
 create or replace function public.handle_updated_at()
 returns trigger language plpgsql as $$
