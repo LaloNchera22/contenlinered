@@ -542,6 +542,108 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   max-width: none;
 }
 
+/* ─── Comments ───────────────────────────────────────────────────────────────── */
+.msg-content-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.msg-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-toggle-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  background: none !important;
+  border: 1px solid #e5e5e5 !important;
+  color: #999 !important;
+  padding: 2px 7px !important;
+  font-size: 0.72rem !important;
+  font-weight: 400 !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  letter-spacing: normal !important;
+  transition: border-color 0.1s, color 0.1s !important;
+}
+
+.comment-toggle-btn:hover {
+  border-color: #aaa !important;
+  color: #444 !important;
+  background: none !important;
+}
+
+.comment-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.comment-section {
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  background: #f9f9f9;
+  border-left: 2px solid #e0e0e0;
+  border-radius: 0 4px 4px 0;
+}
+
+.comment-empty {
+  font-size: 0.78rem;
+  color: #c0c0c0;
+  font-style: italic;
+  margin-bottom: 0.4rem;
+}
+
+.comment-list {
+  margin-bottom: 0.4rem;
+}
+
+.comment-item {
+  border-bottom: none !important;
+  padding: 0.12rem 0 !important;
+  font-size: 0.82rem !important;
+  line-height: 1.4 !important;
+}
+
+.comment-author {
+  font-size: 0.82rem;
+  color: #222;
+}
+
+.comment-text {
+  color: #555;
+  font-size: 0.82rem;
+}
+
+.comment-form {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+
+.comment-input {
+  flex: 1 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  font-size: 0.8rem !important;
+  padding: 0.28rem 0.55rem !important;
+  border: 1px solid #ddd !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+}
+
+.comment-submit-btn {
+  font-size: 0.78rem !important;
+  padding: 0.28rem 0.7rem !important;
+  flex-shrink: 0;
+}
+
 /* ─── Friends list ────────────────────────────────────────────────────────────── */
 .friend-item {
   display: flex;

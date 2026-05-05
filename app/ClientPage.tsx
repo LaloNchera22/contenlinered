@@ -62,6 +62,15 @@ type PrivateMessage = {
   username: string
 }
 
+type Comment = {
+  id: string
+  message_id: string
+  user_id: string
+  content: string
+  created_at: string
+  username: string
+}
+
 type Section = 'communities' | 'friends' | 'messages' | 'explore' | 'presence' | 'profile' | 'settings'
 
 // ─── Icons ─────────────────────────────────────────────────────────────────────
@@ -178,6 +187,12 @@ const IcoMessages = ({ size = 20 }: IcoProps) => (
     <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     <line x1="9" y1="10" x2="15" y2="10" />
     <line x1="9" y1="14" x2="12" y2="14" />
+  </Ico>
+)
+
+const IcoComment = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
   </Ico>
 )
 
@@ -306,6 +321,13 @@ function CommunitiesSection({
   onStartRecord,
   onStopRecord,
   onClearAttach,
+  comments,
+  expandedComments,
+  commentInputs,
+  toggleComments,
+  setCommentInput,
+  sendComment,
+  currentUser,
 }: {
   communities: Community[]
   activeCommunity: Community | null
@@ -323,6 +345,13 @@ function CommunitiesSection({
   onStartRecord: () => void
   onStopRecord: () => void
   onClearAttach: () => void
+  comments: Record<string, Comment[]>
+  expandedComments: Set<string>
+  commentInputs: Record<string, string>
+  toggleComments: (messageId: string) => void
+  setCommentInput: (messageId: string, value: string) => void
+  sendComment: (messageId: string, e: FormEvent) => void
+  currentUser: AppUser | undefined
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null)
 
@@ -353,11 +382,62 @@ function CommunitiesSection({
           <ul className="messages-list">
             {messages.map(m => (
               <li key={m.id} className={m.optimistic ? 'msg-pending' : ''}>
-                <strong>{m.username}</strong>
-                {m.content && <span>: {m.content}</span>}
-                {m.attachment_url && m.attachment_type && (
-                  <div className="msg-attachment-wrap">
-                    <MessageAttachment url={m.attachment_url} type={m.attachment_type} />
+                <div className="msg-content-row">
+                  <div className="msg-body">
+                    <strong>{m.username}</strong>
+                    {m.content && <span>: {m.content}</span>}
+                    {m.attachment_url && m.attachment_type && (
+                      <div className="msg-attachment-wrap">
+                        <MessageAttachment url={m.attachment_url} type={m.attachment_type} />
+                      </div>
+                    )}
+                  </div>
+                  {!m.optimistic && (
+                    <button
+                      className="comment-toggle-btn"
+                      onClick={() => toggleComments(m.id)}
+                      title={expandedComments.has(m.id) ? 'Ocultar comentarios' : 'Ver comentarios'}
+                    >
+                      <IcoComment size={12} />
+                      {(comments[m.id]?.length ?? 0) > 0 && (
+                        <span className="comment-count">{comments[m.id].length}</span>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {!m.optimistic && expandedComments.has(m.id) && (
+                  <div className="comment-section">
+                    {(comments[m.id] ?? []).length === 0 ? (
+                      <p className="comment-empty">Sin comentarios aún.</p>
+                    ) : (
+                      <ul className="comment-list">
+                        {(comments[m.id] ?? []).map(c => (
+                          <li key={c.id} className="comment-item">
+                            <strong className="comment-author">{c.username}</strong>
+                            <span className="comment-text">: {c.content}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {currentUser && (
+                      <form className="comment-form" onSubmit={e => sendComment(m.id, e)}>
+                        <input
+                          type="text"
+                          className="comment-input"
+                          placeholder="Añade un comentario…"
+                          value={commentInputs[m.id] ?? ''}
+                          onChange={e => setCommentInput(m.id, e.target.value)}
+                          maxLength={1000}
+                        />
+                        <button
+                          type="submit"
+                          className="comment-submit-btn"
+                          disabled={!(commentInputs[m.id]?.trim())}
+                        >
+                          Enviar
+                        </button>
+                      </form>
+                    )}
                   </div>
                 )}
               </li>
@@ -1004,6 +1084,11 @@ function App({ session }: { session: Session }) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
+  const [comments, setComments] = useState<Record<string, Comment[]>>({})
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
+  const messagesRef = useRef<Message[]>([])
+
   const [activeDm, setActiveDm] = useState<AppUser | null>(null)
   const [dmMessages, setDmMessages] = useState<PrivateMessage[]>([])
   const [dmInput, setDmInput] = useState('')
@@ -1132,6 +1217,84 @@ function App({ session }: { session: Session }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // ── Keep messagesRef in sync ─────────────────────────────────────────────────
+
+  useEffect(() => { messagesRef.current = messages }, [messages])
+
+  // ── Load comments for active community + real-time ───────────────────────────
+
+  useEffect(() => {
+    if (!activeCommunity) {
+      setComments({})
+      setExpandedComments(new Set())
+      return
+    }
+
+    type RawComment = {
+      id: string
+      message_id: string
+      user_id: string
+      content: string
+      created_at: string
+      users: { username: string } | { username: string }[] | null
+    }
+
+    async function fetchComments() {
+      const { data: msgs } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('community_id', activeCommunity!.id)
+
+      if (!msgs || msgs.length === 0) { setComments({}); return }
+      const messageIds = msgs.map(m => m.id)
+
+      const { data } = await supabase
+        .from('comments')
+        .select('id, message_id, user_id, content, created_at, users(username)')
+        .in('message_id', messageIds)
+        .order('created_at', { ascending: true }) as { data: RawComment[] | null }
+
+      if (data) {
+        const grouped: Record<string, Comment[]> = {}
+        data.forEach(c => {
+          const comment: Comment = {
+            id: c.id,
+            message_id: c.message_id,
+            user_id: c.user_id,
+            content: c.content,
+            created_at: c.created_at,
+            username: (Array.isArray(c.users) ? c.users[0]?.username : (c.users as { username: string } | null)?.username) ?? c.user_id,
+          }
+          if (!grouped[c.message_id]) grouped[c.message_id] = []
+          grouped[c.message_id].push(comment)
+        })
+        setComments(grouped)
+      }
+    }
+
+    fetchComments()
+
+    const channel = supabase
+      .channel(`comments-${activeCommunity.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'comments',
+      }, async payload => {
+        const row = payload.new as { id: string; message_id: string; user_id: string; content: string; created_at: string }
+        if (!messagesRef.current.some(m => m.id === row.message_id)) return
+        const { data: ud } = await supabase.from('users').select('username').eq('id', row.user_id).single()
+        setComments(prev => {
+          const existing = prev[row.message_id] ?? []
+          if (existing.some(c => c.id === row.id)) return prev
+          return { ...prev, [row.message_id]: [...existing, { ...row, username: ud?.username ?? row.user_id }] }
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [activeCommunity, supabase])
 
   // ── Ctrl+K focuses search bar ────────────────────────────────────────────────
 
@@ -1436,6 +1599,33 @@ function App({ session }: { session: Session }) {
     })
   }
 
+  // ── Comments ────────────────────────────────────────────────────────────────
+
+  function toggleComments(messageId: string) {
+    setExpandedComments(prev => {
+      const next = new Set(prev)
+      if (next.has(messageId)) next.delete(messageId)
+      else next.add(messageId)
+      return next
+    })
+  }
+
+  function setCommentInput(messageId: string, value: string) {
+    setCommentInputs(prev => ({ ...prev, [messageId]: value }))
+  }
+
+  async function sendComment(messageId: string, e: FormEvent) {
+    e.preventDefault()
+    const content = commentInputs[messageId]?.trim()
+    if (!content) return
+    setCommentInputs(prev => ({ ...prev, [messageId]: '' }))
+    await supabase.from('comments').insert({
+      message_id: messageId,
+      user_id: session.user.id,
+      content,
+    })
+  }
+
   // ── Send private message ─────────────────────────────────────────────────
 
   async function sendDm(e: FormEvent) {
@@ -1586,6 +1776,13 @@ function App({ session }: { session: Session }) {
               onStartRecord={startRecording}
               onStopRecord={stopRecording}
               onClearAttach={clearAttachment}
+              comments={comments}
+              expandedComments={expandedComments}
+              commentInputs={commentInputs}
+              toggleComments={toggleComments}
+              setCommentInput={setCommentInput}
+              sendComment={sendComment}
+              currentUser={currentUser}
             />
           )}
           {activeSection === 'friends' && (
