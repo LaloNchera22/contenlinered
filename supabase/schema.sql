@@ -187,3 +187,30 @@ create policy "session_messages_public_read"
 create policy "session_messages_auth_insert"
   on public.session_messages for insert
   with check (user_id = auth.uid() and auth.uid() is not null);
+
+-- ─────────────────────────────────────────────
+-- Private Messages (Mensajes Privados)
+-- ─────────────────────────────────────────────
+
+create table if not exists public.private_messages (
+  id          uuid        primary key default gen_random_uuid(),
+  sender_id   uuid        not null references public.users(id) on delete cascade,
+  receiver_id uuid        not null references public.users(id) on delete cascade,
+  content     text        not null check (char_length(content) between 1 and 4000),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists private_messages_conversation_idx
+  on public.private_messages (sender_id, receiver_id, created_at asc);
+
+alter table public.private_messages enable row level security;
+
+-- Only sender and receiver can read their messages
+create policy "private_messages_participants_read"
+  on public.private_messages for select
+  using (sender_id = auth.uid() or receiver_id = auth.uid());
+
+-- Authenticated users can insert as themselves
+create policy "private_messages_auth_insert"
+  on public.private_messages for insert
+  with check (sender_id = auth.uid() and auth.uid() is not null);
