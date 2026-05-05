@@ -113,6 +113,33 @@ create policy "messages_auth_insert"
 --   using (bucket_id = 'attachments' and auth.uid()::text = (storage.foldername(name))[1]);
 
 -- ─────────────────────────────────────────────
+-- Comments (Comentarios en publicaciones)
+-- ─────────────────────────────────────────────
+
+create table if not exists public.comments (
+  id          uuid        primary key default gen_random_uuid(),
+  message_id  uuid        not null references public.messages(id) on delete cascade,
+  user_id     uuid        not null references public.users(id)    on delete cascade,
+  content     text        not null check (char_length(content) between 1 and 1000),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists comments_message_created_idx
+  on public.comments (message_id, created_at asc);
+
+alter table public.comments enable row level security;
+
+create policy "comments_public_read"
+  on public.comments for select using (true);
+
+create policy "comments_auth_insert"
+  on public.comments for insert
+  with check (user_id = auth.uid() and auth.uid() is not null);
+
+alter table public.comments replica identity full;
+alter publication supabase_realtime add table public.comments;
+
+-- ─────────────────────────────────────────────
 -- Seed: sample communities
 -- ─────────────────────────────────────────────
 
