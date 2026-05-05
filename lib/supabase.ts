@@ -104,6 +104,63 @@ export type Database = {
           }
         ]
       }
+      live_sessions: {
+        Row: {
+          id: string
+          topic: string
+          created_by: string
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          topic: string
+          created_by: string
+          created_at?: string
+          expires_at?: string
+        }
+        Update: {
+          topic?: string
+          expires_at?: string
+        }
+        Relationships: []
+      }
+      session_members: {
+        Row: {
+          session_id: string
+          user_id: string
+          joined_at: string
+        }
+        Insert: {
+          session_id: string
+          user_id: string
+          joined_at?: string
+        }
+        Update: {
+          joined_at?: string
+        }
+        Relationships: []
+      }
+      session_messages: {
+        Row: {
+          id: string
+          session_id: string
+          user_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          user_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          content?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
