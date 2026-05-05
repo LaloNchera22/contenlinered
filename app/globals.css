@@ -1,0 +1,212 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  background: #fff;
+  color: #000;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+
+h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.75rem;
+}
+
+p {
+  margin-bottom: 0.5rem;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #000;
+  margin: 1.5rem 0;
+}
+
+nav {
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+section {
+  margin-bottom: 1.5rem;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #e8e8e8;
+  font-size: 0.9rem;
+}
+
+li:last-child {
+  border-bottom: none;
+}
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  border: 1px solid #000;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+  color: #000;
+  outline: none;
+  border-radius: 0;
+  appearance: none;
+}
+
+input:focus {
+  outline: 2px solid #000;
+  outline-offset: -1px;
+}
+
+input::placeholder {
+  color: #aaa;
+}
+
+button {
+  background: #000;
+  color: #fff;
+  border: 1px solid #000;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 0;
+  letter-spacing: 0.02em;
+}
+
+button:hover {
+  background: #222;
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Link-style buttons (nav, community list) */
+nav button,
+.btn-link {
+  background: none;
+  color: #000;
+  border: none;
+  padding: 0;
+  font-weight: 400;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  letter-spacing: normal;
+}
+
+nav button:hover,
+.btn-link:hover {
+  background: none;
+  color: #555;
+}
+
+/* Auth form layout */
+.auth-form p {
+  margin-bottom: 1rem;
+}
+
+.auth-nav {
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+/* Inline form (status + message) */
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.inline-form input {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Chat messages */
+.messages-list {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid #000;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #fafafa;
+}
+
+.messages-list li {
+  border-bottom: none;
+  padding: 0.2rem 0;
+}
+
+.msg-pending {
+  opacity: 0.5;
+}
+
+/* Error & info */
+.error-text {
+  color: #000;
+  font-size: 0.85rem;
+  border-left: 3px solid #000;
+  padding-left: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.setup-box {
+  border: 1px solid #000;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.setup-box code {
+  font-family: monospace;
+  background: #f0f0f0;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.85rem;
+}
