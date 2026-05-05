@@ -194,17 +194,20 @@ function TopBar({
 }) {
   return (
     <div className="topbar">
-      <div className="topbar-search">
-        <span className="topbar-search-icon"><IcoSearch size={14} /></span>
-        <input
-          ref={searchRef}
-          className="topbar-input"
-          type="text"
-          placeholder="Buscar…"
-          value={searchQuery}
-          onChange={e => onSearchChange(e.target.value)}
-        />
-        <span className="topbar-kbd">Ctrl K</span>
+      <span className="topbar-brand">Red Social</span>
+      <div className="topbar-search-wrap">
+        <div className="topbar-search" onClick={() => searchRef.current?.focus()}>
+          <span className="topbar-search-icon"><IcoSearch size={15} /></span>
+          <input
+            ref={searchRef}
+            className="topbar-input"
+            type="text"
+            placeholder="Buscar en Red Social…"
+            value={searchQuery}
+            onChange={e => onSearchChange(e.target.value)}
+          />
+          <span className="topbar-kbd">Ctrl K</span>
+        </div>
       </div>
     </div>
   )
