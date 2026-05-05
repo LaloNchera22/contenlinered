@@ -532,6 +532,7 @@ function PresenceSection({
   onCreateSession,
   onSendSessionMessage,
   onSessionTyping,
+  onDeleteSession,
   sessionEndRef,
 }: {
   currentUser: AppUser | undefined
@@ -551,6 +552,7 @@ function PresenceSection({
   onCreateSession: (e: FormEvent) => void
   onSendSessionMessage: (e: FormEvent) => void
   onSessionTyping: () => void
+  onDeleteSession: (s: LiveSession) => void
   sessionEndRef: React.RefObject<HTMLLIElement | null>
 }) {
   function computeAffinity(sessionTopic: string): number {
@@ -574,6 +576,16 @@ function PresenceSection({
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {activeSession.topic}
           </span>
+          {currentUser && activeSession.created_by === currentUser.id && (
+            <button
+              className="btn-danger"
+              style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+              onClick={() => onDeleteSession(activeSession)}
+              title="Eliminar sala"
+            >
+              Eliminar sala
+            </button>
+          )}
         </div>
 
         <div className="presence-members-bar">
@@ -653,9 +665,21 @@ function PresenceSection({
                   <span className="session-pulse-dot" />
                   {count} {count === 1 ? 'persona' : 'personas'} en vivo
                 </div>
-                <button className="session-enter-btn" onClick={() => onJoinSession(s)}>
-                  Entrar →
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button className="session-enter-btn" onClick={() => onJoinSession(s)}>
+                    Entrar →
+                  </button>
+                  {currentUser && s.created_by === currentUser.id && (
+                    <button
+                      className="btn-danger"
+                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+                      onClick={() => onDeleteSession(s)}
+                      title="Eliminar sala"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
               </div>
             )
           })}
@@ -1280,6 +1304,11 @@ function App({ session }: { session: Session }) {
     setActiveSession(null)
   }
 
+  async function deleteSession(s: LiveSession) {
+    if (activeSession?.id === s.id) setActiveSession(null)
+    await supabase.from('live_sessions').delete().eq('id', s.id)
+  }
+
   function handleSessionTyping() {
     const username = currentUser?.username ?? 'alguien'
     typingChannelRef.current?.send({
@@ -1396,6 +1425,7 @@ function App({ session }: { session: Session }) {
               onCreateSession={createSession}
               onSendSessionMessage={sendSessionMessage}
               onSessionTyping={handleSessionTyping}
+              onDeleteSession={deleteSession}
               sessionEndRef={sessionEndRef}
             />
           )}
