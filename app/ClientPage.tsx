@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, FormEvent, Component, ReactNode } from 'react'
+import { useState, useEffect, useRef, FormEvent, Component, ReactNode, useCallback } from 'react'
 import { Session } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
@@ -96,6 +96,42 @@ const IcoLogout = ({ size = 20 }: IcoProps) => (
     <path d="M21 12H9" />
   </Ico>
 )
+
+const IcoSearch = ({ size = 16 }: IcoProps) => (
+  <Ico size={size}>
+    <circle cx="11" cy="11" r="8" />
+    <path d="M21 21l-4.35-4.35" />
+  </Ico>
+)
+
+// ─── TopBar ──────────────────────────────────────────────────────────────────────
+
+function TopBar({
+  searchQuery,
+  onSearchChange,
+  searchRef,
+}: {
+  searchQuery: string
+  onSearchChange: (v: string) => void
+  searchRef: React.RefObject<HTMLInputElement | null>
+}) {
+  return (
+    <div className="topbar">
+      <div className="topbar-search">
+        <span className="topbar-search-icon"><IcoSearch size={14} /></span>
+        <input
+          ref={searchRef}
+          className="topbar-input"
+          type="text"
+          placeholder="Buscar…"
+          value={searchQuery}
+          onChange={e => onSearchChange(e.target.value)}
+        />
+        <span className="topbar-kbd">Ctrl K</span>
+      </div>
+    </div>
+  )
+}
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────────
 
@@ -499,7 +535,9 @@ function App({ session }: { session: Session }) {
   const [newMessage, setNewMessage] = useState('')
   const [statusInput, setStatusInput] = useState('')
   const [statusError, setStatusError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const messagesEndRef = useRef<HTMLLIElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const currentUser = users.find(u => u.id === session.user.id)
 
@@ -607,6 +645,20 @@ function App({ session }: { session: Session }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // ── Ctrl+K focuses search bar ────────────────────────────────────────────────
+
+  const handleGlobalKey = useCallback((e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleGlobalKey)
+    return () => document.removeEventListener('keydown', handleGlobalKey)
+  }, [handleGlobalKey])
+
   // ── Send message ────────────────────────────────────────────────────────────
 
   async function sendMessage(e: FormEvent) {
@@ -678,6 +730,12 @@ function App({ session }: { session: Session }) {
         onSectionChange={handleSectionChange}
         onLogout={handleLogout}
         username={currentUser?.username ?? session.user.email ?? ''}
+      />
+
+      <TopBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchRef={searchRef}
       />
 
       <div className="content-area">
