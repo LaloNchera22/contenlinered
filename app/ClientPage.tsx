@@ -272,16 +272,31 @@ function Sidebar({
 function MessageAttachment({ url, type }: { url: string; type: 'pdf' | 'audio' }) {
   if (type === 'pdf') {
     const filename = decodeURIComponent(url.split('/').pop() ?? 'documento.pdf').replace(/^\d+-/, '')
+    const viewerUrl = `/pdf-viewer?url=${encodeURIComponent(url)}`
     return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="msg-attachment-pdf"
-      >
-        <IcoPdf size={14} />
-        {filename}
-      </a>
+      <div className="msg-attachment-pdf-wrap">
+        <a
+          href={viewerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="msg-attachment-pdf"
+        >
+          <IcoPdf size={14} />
+          {filename}
+        </a>
+        <a
+          href={url}
+          download={filename}
+          className="msg-attachment-download"
+          title="Descargar PDF"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </a>
+      </div>
     )
   }
   return (
