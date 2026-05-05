@@ -27,6 +27,25 @@ type Message = {
   optimistic?: boolean
 }
 
+// ─── Not Configured ───────────────────────────────────────────────────────────
+
+function NotConfigured() {
+  return (
+    <main>
+      <h1>Red Social</h1>
+      <div className="setup-box">
+        <p><strong>La aplicación no está configurada.</strong></p>
+        <p>
+          Añade las siguientes variables de entorno en Vercel → Project Settings → Environment Variables:
+        </p>
+        <br />
+        <p><code>NEXT_PUBLIC_SUPABASE_URL</code></p>
+        <p><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></p>
+      </div>
+    </main>
+  )
+}
+
 // ─── Auth Panel ───────────────────────────────────────────────────────────────
 
 function AuthPanel() {
@@ -72,20 +91,21 @@ function AuthPanel() {
   return (
     <main>
       <h1>Red Social</h1>
-      <nav>
-        <button onClick={() => { setMode('login'); setError('') }}>
+
+      <nav className="auth-nav">
+        <button className="btn-link" onClick={() => { setMode('login'); setError('') }}>
           {mode === 'login' ? <strong>Entrar</strong> : 'Entrar'}
         </button>
-        {' | '}
-        <button onClick={() => { setMode('signup'); setError('') }}>
+        {' · '}
+        <button className="btn-link" onClick={() => { setMode('signup'); setError('') }}>
           {mode === 'signup' ? <strong>Registrarse</strong> : 'Registrarse'}
         </button>
       </nav>
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-form" onSubmit={handleSubmit}>
         {mode === 'signup' && (
           <p>
-            <label htmlFor="username">Usuario</label><br />
+            <label htmlFor="username">Usuario</label>
             <input
               id="username"
               type="text"
@@ -97,7 +117,7 @@ function AuthPanel() {
           </p>
         )}
         <p>
-          <label htmlFor="email">Email</label><br />
+          <label htmlFor="email">Email</label>
           <input
             id="email"
             type="email"
@@ -108,7 +128,7 @@ function AuthPanel() {
           />
         </p>
         <p>
-          <label htmlFor="password">Contraseña</label><br />
+          <label htmlFor="password">Contraseña</label>
           <input
             id="password"
             type="password"
@@ -119,7 +139,7 @@ function AuthPanel() {
             minLength={6}
           />
         </p>
-        {error && <p><strong>Error:</strong> {error}</p>}
+        {error && <p className="error-text">{error}</p>}
         <button type="submit" disabled={loading}>
           {loading ? 'Cargando…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}
         </button>
@@ -196,7 +216,6 @@ function App({ session }: { session: Session }) {
             user_id: m.user_id,
             content: m.content,
             created_at: m.created_at,
-            // supabase returns the joined row as object or array
             username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
           })),
         )
@@ -213,7 +232,6 @@ function App({ session }: { session: Session }) {
         async payload => {
           const row = payload.new as { id: string; community_id: string; user_id: string; content: string; created_at: string }
 
-          // Resolve username
           const { data: userData } = await supabase
             .from('users')
             .select('username')
@@ -226,7 +244,6 @@ function App({ session }: { session: Session }) {
           }
 
           setMessages(prev => {
-            // Replace matching optimistic message (same user + same content)
             const optimisticIdx = prev.findIndex(
               m => m.optimistic && m.user_id === row.user_id && m.content === row.content,
             )
@@ -235,7 +252,6 @@ function App({ session }: { session: Session }) {
               next[optimisticIdx] = incoming
               return next
             }
-            // Avoid duplicates from our own insert event
             if (prev.some(m => m.id === row.id)) return prev
             return [...prev, incoming]
           })
@@ -261,7 +277,6 @@ function App({ session }: { session: Session }) {
 
     const optimisticId = `opt-${Date.now()}`
 
-    // Optimistic update — instant UI feedback
     setMessages(prev => [
       ...prev,
       {
@@ -276,7 +291,6 @@ function App({ session }: { session: Session }) {
     ])
     setNewMessage('')
 
-    // Persist in background
     await supabase.from('messages').insert({
       community_id: activeCommunity.id,
       user_id: session.user.id,
@@ -317,16 +331,15 @@ function App({ session }: { session: Session }) {
       <nav>
         <strong>{currentUser?.username ?? session.user.email}</strong>
         {currentUser?.public_status && <span> — {currentUser.public_status}</span>}
-        {' '}
-        <button onClick={() => supabase.auth.signOut()}>Salir</button>
+        <button className="btn-link" onClick={() => supabase.auth.signOut()}>Salir</button>
       </nav>
 
       <hr />
 
       {/* ── Estatus propio ── */}
       <section>
-        <h2>Tu estatus público</h2>
-        <form onSubmit={updateStatus}>
+        <h2>Tu estatus</h2>
+        <form className="inline-form" onSubmit={updateStatus}>
           <input
             type="text"
             placeholder="Escribe tu estatus…"
@@ -334,10 +347,9 @@ function App({ session }: { session: Session }) {
             onChange={e => setStatusInput(e.target.value)}
             maxLength={280}
           />
-          {' '}
           <button type="submit">Actualizar</button>
         </form>
-        {statusError && <p>{statusError}</p>}
+        {statusError && <p className="error-text">{statusError}</p>}
       </section>
 
       <hr />
@@ -349,7 +361,7 @@ function App({ session }: { session: Session }) {
           {users.map(u => (
             <li key={u.id}>
               <strong>{u.username}</strong>
-              {u.public_status ? `: ${u.public_status}` : ''}
+              {u.public_status ? ` — ${u.public_status}` : ''}
               {u.id === session.user.id ? ' (tú)' : ''}
             </li>
           ))}
@@ -364,7 +376,7 @@ function App({ session }: { session: Session }) {
         <ul>
           {communities.map(c => (
             <li key={c.id}>
-              <button onClick={() => setActiveCommunity(c)}>
+              <button className="btn-link" onClick={() => setActiveCommunity(c)}>
                 {activeCommunity?.id === c.id ? <strong>{c.name}</strong> : c.name}
               </button>
             </li>
@@ -378,16 +390,15 @@ function App({ session }: { session: Session }) {
       {activeCommunity ? (
         <section>
           <h2>Chat — {activeCommunity.name}</h2>
-          <ul>
+          <ul className="messages-list">
             {messages.map(m => (
-              <li key={m.id}>
+              <li key={m.id} className={m.optimistic ? 'msg-pending' : ''}>
                 <strong>{m.username}</strong>: {m.content}
-                {m.optimistic ? ' …' : ''}
               </li>
             ))}
             <li ref={messagesEndRef} />
           </ul>
-          <form onSubmit={sendMessage}>
+          <form className="inline-form" onSubmit={sendMessage}>
             <input
               type="text"
               placeholder="Escribe un mensaje…"
@@ -395,7 +406,6 @@ function App({ session }: { session: Session }) {
               onChange={e => setNewMessage(e.target.value)}
               autoFocus
             />
-            {' '}
             <button type="submit">Enviar</button>
           </form>
         </section>
@@ -423,8 +433,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     if (this.state.error) {
       return (
         <main>
-          <h1>Error al iniciar la aplicación</h1>
-          <p>{this.state.error.message}</p>
+          <h1>Red Social</h1>
+          <div className="setup-box">
+            <p><strong>Error al iniciar la aplicación</strong></p>
+            <p>{this.state.error.message}</p>
+          </div>
         </main>
       )
     }
@@ -460,6 +473,15 @@ function AppRoot() {
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function ClientPage() {
+  const isConfigured = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+
+  if (!isConfigured) {
+    return <NotConfigured />
+  }
+
   return (
     <ErrorBoundary>
       <AppRoot />
