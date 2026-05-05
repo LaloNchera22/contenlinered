@@ -22,6 +22,8 @@ type Message = {
   community_id: string
   user_id: string
   content: string
+  attachment_url?: string | null
+  attachment_type?: 'pdf' | 'audio' | null
   created_at: string
   username: string
   optimistic?: boolean
@@ -101,6 +103,34 @@ const IcoSearch = ({ size = 16 }: IcoProps) => (
   <Ico size={size}>
     <circle cx="11" cy="11" r="8" />
     <path d="M21 21l-4.35-4.35" />
+  </Ico>
+)
+
+const IcoPdf = ({ size = 16 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+    <path d="M14 2v6h6" />
+    <path d="M9 13h6M9 17h4" />
+  </Ico>
+)
+
+const IcoMic = ({ size = 16 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+    <path d="M19 10v2a7 7 0 01-14 0v-2" />
+    <path d="M12 19v4M8 23h8" />
+  </Ico>
+)
+
+const IcoStop = ({ size = 16 }: IcoProps) => (
+  <Ico size={size}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+  </Ico>
+)
+
+const IcoX = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M18 6L6 18M6 6l12 12" />
   </Ico>
 )
 
@@ -190,6 +220,26 @@ function Sidebar({
 
 // ─── Content Sections ───────────────────────────────────────────────────────────
 
+function MessageAttachment({ url, type }: { url: string; type: 'pdf' | 'audio' }) {
+  if (type === 'pdf') {
+    const filename = decodeURIComponent(url.split('/').pop() ?? 'documento.pdf').replace(/^\d+-/, '')
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="msg-attachment-pdf"
+      >
+        <IcoPdf size={14} />
+        {filename}
+      </a>
+    )
+  }
+  return (
+    <audio controls src={url} className="msg-audio-player" />
+  )
+}
+
 function CommunitiesSection({
   communities,
   activeCommunity,
@@ -199,6 +249,14 @@ function CommunitiesSection({
   setNewMessage,
   sendMessage,
   messagesEndRef,
+  attachedFile,
+  attachmentType,
+  isRecording,
+  isUploading,
+  onPdfSelect,
+  onStartRecord,
+  onStopRecord,
+  onClearAttach,
 }: {
   communities: Community[]
   activeCommunity: Community | null
@@ -208,7 +266,17 @@ function CommunitiesSection({
   setNewMessage: (v: string) => void
   sendMessage: (e: FormEvent) => void
   messagesEndRef: React.RefObject<HTMLLIElement | null>
+  attachedFile: File | null
+  attachmentType: 'pdf' | 'audio' | null
+  isRecording: boolean
+  isUploading: boolean
+  onPdfSelect: (file: File) => void
+  onStartRecord: () => void
+  onStopRecord: () => void
+  onClearAttach: () => void
 }) {
+  const pdfInputRef = useRef<HTMLInputElement>(null)
+
   return (
     <div>
       <div className="section-title">Comunidades</div>
@@ -236,20 +304,83 @@ function CommunitiesSection({
           <ul className="messages-list">
             {messages.map(m => (
               <li key={m.id} className={m.optimistic ? 'msg-pending' : ''}>
-                <strong>{m.username}</strong>: {m.content}
+                <strong>{m.username}</strong>
+                {m.content && <span>: {m.content}</span>}
+                {m.attachment_url && m.attachment_type && (
+                  <div className="msg-attachment-wrap">
+                    <MessageAttachment url={m.attachment_url} type={m.attachment_type} />
+                  </div>
+                )}
               </li>
             ))}
             <li ref={messagesEndRef} />
           </ul>
+
+          {attachedFile && (
+            <div className="attach-preview">
+              {attachmentType === 'pdf' ? <IcoPdf size={14} /> : <IcoMic size={14} />}
+              <span className="attach-preview-name">{attachedFile.name}</span>
+              <button type="button" className="attach-clear-btn" onClick={onClearAttach} title="Quitar archivo">
+                <IcoX size={12} />
+              </button>
+            </div>
+          )}
+
           <form className="inline-form" onSubmit={sendMessage}>
             <input
               type="text"
-              placeholder="Escribe un mensaje…"
+              placeholder={attachedFile ? 'Añade un mensaje opcional…' : 'Escribe un mensaje…'}
               value={newMessage}
               onChange={e => setNewMessage(e.target.value)}
               autoFocus
             />
-            <button type="submit">Enviar</button>
+
+            <input
+              ref={pdfInputRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (file) onPdfSelect(file)
+                e.target.value = ''
+              }}
+            />
+
+            <button
+              type="button"
+              className="attach-btn"
+              onClick={() => pdfInputRef.current?.click()}
+              title="Adjuntar PDF"
+              disabled={isRecording || isUploading}
+            >
+              <IcoPdf size={15} />
+            </button>
+
+            {isRecording ? (
+              <button
+                type="button"
+                className="attach-btn attach-btn--recording"
+                onClick={onStopRecord}
+                title="Detener grabación"
+              >
+                <IcoStop size={15} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="attach-btn"
+                onClick={onStartRecord}
+                title="Grabar mensaje de voz"
+                disabled={!!attachedFile || isUploading}
+              >
+                <IcoMic size={15} />
+              </button>
+            )}
+
+            <button type="submit" disabled={isUploading || isRecording || (!newMessage.trim() && !attachedFile)}>
+              {isUploading ? 'Subiendo…' : 'Enviar'}
+            </button>
           </form>
         </>
       ) : (
@@ -536,8 +667,14 @@ function App({ session }: { session: Session }) {
   const [statusInput, setStatusInput] = useState('')
   const [statusError, setStatusError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [attachedFile, setAttachedFile] = useState<File | null>(null)
+  const [attachmentType, setAttachmentType] = useState<'pdf' | 'audio' | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const messagesEndRef = useRef<HTMLLIElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   const currentUser = users.find(u => u.id === session.user.id)
 
@@ -580,7 +717,7 @@ function App({ session }: { session: Session }) {
     async function fetchMessages() {
       const { data } = await supabase
         .from('messages')
-        .select('id, community_id, user_id, content, created_at, users(username)')
+        .select('id, community_id, user_id, content, attachment_url, attachment_type, created_at, users(username)')
         .eq('community_id', activeCommunity!.id)
         .order('created_at', { ascending: true })
         .limit(100)
@@ -592,6 +729,8 @@ function App({ session }: { session: Session }) {
             community_id: m.community_id,
             user_id: m.user_id,
             content: m.content,
+            attachment_url: m.attachment_url,
+            attachment_type: m.attachment_type as 'pdf' | 'audio' | null,
             created_at: m.created_at,
             username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
           })),
@@ -607,7 +746,7 @@ function App({ session }: { session: Session }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `community_id=eq.${activeCommunity.id}` },
         async payload => {
-          const row = payload.new as { id: string; community_id: string; user_id: string; content: string; created_at: string }
+          const row = payload.new as { id: string; community_id: string; user_id: string; content: string; attachment_url: string | null; attachment_type: 'pdf' | 'audio' | null; created_at: string }
 
           const { data: userData } = await supabase
             .from('users')
@@ -617,6 +756,8 @@ function App({ session }: { session: Session }) {
 
           const incoming: Message = {
             ...row,
+            attachment_url: row.attachment_url,
+            attachment_type: row.attachment_type,
             username: userData?.username ?? row.user_id,
           }
 
@@ -661,10 +802,66 @@ function App({ session }: { session: Session }) {
 
   // ── Send message ────────────────────────────────────────────────────────────
 
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      mr.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const file = new File([blob], `voz-${Date.now()}.webm`, { type: 'audio/webm' })
+        setAttachedFile(file)
+        setAttachmentType('audio')
+        stream.getTracks().forEach(t => t.stop())
+      }
+      mr.start()
+      mediaRecorderRef.current = mr
+      setIsRecording(true)
+    } catch {
+      alert('No se pudo acceder al micrófono.')
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop()
+    setIsRecording(false)
+  }
+
+  function handlePdfSelect(file: File) {
+    setAttachedFile(file)
+    setAttachmentType('pdf')
+  }
+
+  function clearAttachment() {
+    setAttachedFile(null)
+    setAttachmentType(null)
+  }
+
   async function sendMessage(e: FormEvent) {
     e.preventDefault()
     const content = newMessage.trim()
-    if (!content || !activeCommunity) return
+    if (!content && !attachedFile) return
+    if (!activeCommunity) return
+
+    let attachment_url: string | null = null
+    let attachment_type: 'pdf' | 'audio' | null = null
+
+    if (attachedFile) {
+      setIsUploading(true)
+      const ext = attachedFile.name.split('.').pop() ?? 'bin'
+      const path = `${session.user.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('attachments')
+        .upload(path, attachedFile)
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path)
+        attachment_url = urlData.publicUrl
+        attachment_type = attachmentType
+      }
+      setIsUploading(false)
+    }
 
     const optimisticId = `opt-${Date.now()}`
 
@@ -675,17 +872,23 @@ function App({ session }: { session: Session }) {
         community_id: activeCommunity.id,
         user_id: session.user.id,
         content,
+        attachment_url,
+        attachment_type,
         created_at: new Date().toISOString(),
         username: currentUser?.username ?? session.user.email ?? session.user.id,
         optimistic: true,
       },
     ])
     setNewMessage('')
+    setAttachedFile(null)
+    setAttachmentType(null)
 
     await supabase.from('messages').insert({
       community_id: activeCommunity.id,
       user_id: session.user.id,
-      content,
+      content: content || '',
+      attachment_url,
+      attachment_type,
     })
   }
 
@@ -750,6 +953,14 @@ function App({ session }: { session: Session }) {
               setNewMessage={setNewMessage}
               sendMessage={sendMessage}
               messagesEndRef={messagesEndRef}
+              attachedFile={attachedFile}
+              attachmentType={attachmentType}
+              isRecording={isRecording}
+              isUploading={isUploading}
+              onPdfSelect={handlePdfSelect}
+              onStartRecord={startRecording}
+              onStopRecord={stopRecording}
+              onClearAttach={clearAttachment}
             />
           )}
           {activeSection === 'friends' && (

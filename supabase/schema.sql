@@ -17,11 +17,16 @@ create table if not exists public.communities (
 );
 
 create table if not exists public.messages (
-  id           uuid        primary key default gen_random_uuid(),
-  community_id uuid        not null references public.communities(id) on delete cascade,
-  user_id      uuid        not null references public.users(id)       on delete cascade,
-  content      text        not null check (char_length(content) between 1 and 4000),
-  created_at   timestamptz not null default now()
+  id              uuid        primary key default gen_random_uuid(),
+  community_id    uuid        not null references public.communities(id) on delete cascade,
+  user_id         uuid        not null references public.users(id)       on delete cascade,
+  content         text        not null default '' check (char_length(content) <= 4000),
+  attachment_url  text,
+  attachment_type text        check (attachment_type in ('pdf', 'audio')),
+  created_at      timestamptz not null default now(),
+  constraint messages_has_content_or_attachment check (
+    char_length(content) > 0 or attachment_url is not null
+  )
 );
 
 -- Index for fast message history per community
@@ -79,6 +84,29 @@ create policy "messages_auth_insert"
     user_id = auth.uid()
     and auth.uid() is not null
   );
+
+-- ─────────────────────────────────────────────
+-- Seed: sample communities
+-- ─────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────
+-- Storage: attachments bucket
+-- ─────────────────────────────────────────────
+
+-- Run this in Supabase SQL editor (requires storage extension):
+-- insert into storage.buckets (id, name, public) values ('attachments', 'attachments', true) on conflict do nothing;
+
+-- create policy "attachments_public_read"
+--   on storage.objects for select
+--   using (bucket_id = 'attachments');
+
+-- create policy "attachments_auth_insert"
+--   on storage.objects for insert
+--   with check (bucket_id = 'attachments' and auth.uid() is not null);
+
+-- create policy "attachments_auth_delete"
+--   on storage.objects for delete
+--   using (bucket_id = 'attachments' and auth.uid()::text = (storage.foldername(name))[1]);
 
 -- ─────────────────────────────────────────────
 -- Seed: sample communities

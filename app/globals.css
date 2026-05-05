@@ -435,6 +435,99 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .msg-pending { opacity: 0.4; }
 
+/* ─── Message attachments ────────────────────────────────────────────────────── */
+.msg-attachment-wrap {
+  margin-top: 0.35rem;
+}
+
+.msg-attachment-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  color: #0d0d0d;
+  text-decoration: none;
+  background: #f8f8f8;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+.msg-attachment-pdf:hover { background: #f0f0f0; }
+
+.msg-audio-player {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: 36px;
+  margin-top: 0.1rem;
+}
+
+/* ─── Attach preview bar ─────────────────────────────────────────────────────── */
+.attach-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 5px;
+  background: #fafafa;
+  font-size: 0.82rem;
+  color: #555;
+  margin-bottom: 0.4rem;
+  max-width: 100%;
+}
+
+.attach-preview-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attach-clear-btn {
+  background: none !important;
+  border: none !important;
+  color: #999 !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.attach-clear-btn:hover { color: #0d0d0d !important; }
+
+/* ─── Attach / mic buttons ───────────────────────────────────────────────────── */
+.attach-btn {
+  background: none !important;
+  border: 1px solid #d8d8d8 !important;
+  color: #555 !important;
+  padding: 0.45rem 0.6rem !important;
+  display: flex;
+  align-items: center;
+  border-radius: 5px !important;
+  flex-shrink: 0;
+  transition: border-color 0.1s !important, color 0.1s !important;
+}
+.attach-btn:hover:not(:disabled) {
+  border-color: #0d0d0d !important;
+  color: #0d0d0d !important;
+}
+.attach-btn--recording {
+  border-color: #c00 !important;
+  color: #c00 !important;
+  animation: pulse-rec 1s ease-in-out infinite;
+}
+
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* ─── Inline form ────────────────────────────────────────────────────────────── */
 .inline-form {
   display: flex;
