@@ -73,19 +73,25 @@ export type Database = {
           community_id: string
           user_id: string
           content: string
+          attachment_url: string | null
+          attachment_type: 'pdf' | 'audio' | null
           created_at: string
         }
         Insert: {
           id?: string
           community_id: string
           user_id: string
-          content: string
+          content?: string
+          attachment_url?: string | null
+          attachment_type?: 'pdf' | 'audio' | null
           created_at?: string
         }
         Update: {
           community_id?: string
           user_id?: string
           content?: string
+          attachment_url?: string | null
+          attachment_type?: 'pdf' | 'audio' | null
           created_at?: string
         }
         Relationships: [
