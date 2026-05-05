@@ -163,9 +163,9 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 /* ─── Sidebar ────────────────────────────────────────────────────────────────── */
 .sidebar {
   position: fixed;
-  top: 0;
+  top: 44px;
   left: 0;
-  height: 100vh;
+  height: calc(100vh - 44px);
   width: 52px;
   background: #ffffff;
   display: flex;
@@ -287,23 +287,23 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 .topbar {
   position: fixed;
   top: 0;
-  left: 52px;
+  left: 0;
   right: 0;
   height: 44px;
-  background: #fff;
-  border-bottom: 1px solid #e5e5e5;
+  background: #111111;
+  border-bottom: 1px solid #333333;
   display: flex;
   align-items: center;
   padding: 0 1.25rem;
-  z-index: 90;
+  z-index: 110;
 }
 
 .topbar-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f7f7f7;
-  border: 1px solid #e5e5e5;
+  background: #2a2a2a;
+  border: 1px solid #444444;
   border-radius: 6px;
   padding: 0 10px;
   height: 28px;
@@ -312,12 +312,12 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 .topbar-search:focus-within {
-  background: #fff;
-  border-color: #aaa;
+  background: #333333;
+  border-color: #666666;
 }
 
 .topbar-search-icon {
-  color: #aaa;
+  color: #888888;
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -329,7 +329,7 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   background: transparent !important;
   outline: none !important;
   font-size: 0.82rem !important;
-  color: #0d0d0d !important;
+  color: #ffffff !important;
   padding: 0 !important;
   max-width: none !important;
   width: auto !important;
@@ -337,13 +337,13 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   min-width: 0;
 }
 
-.topbar-input::placeholder { color: #bbb !important; }
+.topbar-input::placeholder { color: #666666 !important; }
 
 .topbar-kbd {
   font-size: 0.65rem;
-  color: #bbb;
-  background: #efefef;
-  border: 1px solid #ddd;
+  color: #888888;
+  background: #2a2a2a;
+  border: 1px solid #444444;
   border-radius: 3px;
   padding: 1px 5px;
   white-space: nowrap;
