@@ -10,5 +10,8 @@ out/
 .env.local
 .env.*.local
 
+# typescript
+tsconfig.tsbuildinfo
+
 # misc
 .DS_Store
