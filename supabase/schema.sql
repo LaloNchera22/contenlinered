@@ -117,3 +117,73 @@ insert into public.communities (name) values
   ('Tecnología'),
   ('Arte y Diseño')
 on conflict do nothing;
+
+-- ─────────────────────────────────────────────
+-- Presence Events (Eventos de Presencia)
+-- ─────────────────────────────────────────────
+
+create table if not exists public.live_sessions (
+  id           uuid        primary key default gen_random_uuid(),
+  topic        text        not null check (char_length(topic) between 3 and 200),
+  created_by   uuid        not null references public.users(id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  expires_at   timestamptz not null default now() + interval '2 hours'
+);
+
+create table if not exists public.session_members (
+  session_id  uuid        not null references public.live_sessions(id) on delete cascade,
+  user_id     uuid        not null references public.users(id) on delete cascade,
+  joined_at   timestamptz not null default now(),
+  primary key (session_id, user_id)
+);
+
+create table if not exists public.session_messages (
+  id          uuid        primary key default gen_random_uuid(),
+  session_id  uuid        not null references public.live_sessions(id) on delete cascade,
+  user_id     uuid        not null references public.users(id) on delete cascade,
+  content     text        not null check (char_length(content) between 1 and 2000),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists session_messages_session_created_idx
+  on public.session_messages (session_id, created_at asc);
+
+alter table public.live_sessions    enable row level security;
+alter table public.session_members  enable row level security;
+alter table public.session_messages enable row level security;
+
+-- live_sessions: anyone can read; auth users can create their own; creator can delete
+create policy "live_sessions_public_read"
+  on public.live_sessions for select using (true);
+
+create policy "live_sessions_auth_insert"
+  on public.live_sessions for insert
+  with check (created_by = auth.uid() and auth.uid() is not null);
+
+create policy "live_sessions_creator_delete"
+  on public.live_sessions for delete
+  using (created_by = auth.uid());
+
+-- session_members: anyone can read; members manage themselves
+create policy "session_members_public_read"
+  on public.session_members for select using (true);
+
+create policy "session_members_self_insert"
+  on public.session_members for insert
+  with check (user_id = auth.uid() and auth.uid() is not null);
+
+create policy "session_members_self_upsert"
+  on public.session_members for update
+  using (user_id = auth.uid());
+
+create policy "session_members_self_delete"
+  on public.session_members for delete
+  using (user_id = auth.uid());
+
+-- session_messages: public read; auth insert own messages
+create policy "session_messages_public_read"
+  on public.session_messages for select using (true);
+
+create policy "session_messages_auth_insert"
+  on public.session_messages for insert
+  with check (user_id = auth.uid() and auth.uid() is not null);

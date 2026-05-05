@@ -29,7 +29,31 @@ type Message = {
   optimistic?: boolean
 }
 
-type Section = 'communities' | 'friends' | 'profile' | 'explore' | 'settings'
+type LiveSession = {
+  id: string
+  topic: string
+  created_by: string
+  created_at: string
+  expires_at: string
+}
+
+type SessionMember = {
+  session_id: string
+  user_id: string
+  joined_at: string
+  username: string
+}
+
+type SessionMessage = {
+  id: string
+  session_id: string
+  user_id: string
+  content: string
+  created_at: string
+  username: string
+}
+
+type Section = 'communities' | 'friends' | 'explore' | 'presence' | 'profile' | 'settings'
 
 // ─── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -134,6 +158,12 @@ const IcoX = ({ size = 14 }: IcoProps) => (
   </Ico>
 )
 
+const IcoPresence = ({ size = 20 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </Ico>
+)
+
 // ─── TopBar ──────────────────────────────────────────────────────────────────────
 
 function TopBar({
@@ -169,6 +199,7 @@ const NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => React
   { section: 'communities', label: 'Comunidades', Icon: IcoCommunities },
   { section: 'friends',     label: 'Amigos',      Icon: IcoFriends },
   { section: 'explore',     label: 'Explorar',    Icon: IcoExplore },
+  { section: 'presence',    label: 'Presencia',   Icon: IcoPresence },
   { section: 'profile',     label: 'Perfil',      Icon: IcoProfile },
   { section: 'settings',    label: 'Ajustes',     Icon: IcoSettings },
 ]
@@ -483,6 +514,170 @@ function ExploreSection() {
   )
 }
 
+function PresenceSection({
+  currentUser,
+  liveSessions,
+  allSessionMembers,
+  activeSession,
+  sessionMessages,
+  sessionMembers,
+  typingUsers,
+  sessionMsgInput,
+  setSessionMsgInput,
+  newSessionTopic,
+  setNewSessionTopic,
+  sessionError,
+  onJoinSession,
+  onLeaveSession,
+  onCreateSession,
+  onSendSessionMessage,
+  onSessionTyping,
+  sessionEndRef,
+}: {
+  currentUser: AppUser | undefined
+  liveSessions: LiveSession[]
+  allSessionMembers: { session_id: string; user_id: string }[]
+  activeSession: LiveSession | null
+  sessionMessages: SessionMessage[]
+  sessionMembers: SessionMember[]
+  typingUsers: string[]
+  sessionMsgInput: string
+  setSessionMsgInput: (v: string) => void
+  newSessionTopic: string
+  setNewSessionTopic: (v: string) => void
+  sessionError: string
+  onJoinSession: (s: LiveSession) => void
+  onLeaveSession: () => void
+  onCreateSession: (e: FormEvent) => void
+  onSendSessionMessage: (e: FormEvent) => void
+  onSessionTyping: () => void
+  sessionEndRef: React.RefObject<HTMLLIElement | null>
+}) {
+  function computeAffinity(sessionTopic: string): number {
+    if (!currentUser?.public_status) return 0
+    const normalize = (s: string) =>
+      s.toLowerCase().replace(/[^\w\sáéíóúñü]/g, '').split(/\s+/).filter(w => w.length > 3)
+    const statusWords = new Set(normalize(currentUser.public_status))
+    const topicWords = normalize(sessionTopic)
+    if (statusWords.size === 0 || topicWords.length === 0) return 0
+    const matches = topicWords.filter(w => statusWords.has(w)).length
+    return matches / Math.max(statusWords.size, topicWords.length)
+  }
+
+  if (activeSession) {
+    return (
+      <div>
+        <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button className="presence-back-btn" onClick={onLeaveSession} title="Salir de la sala">
+            ←
+          </button>
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeSession.topic}
+          </span>
+        </div>
+
+        <div className="presence-members-bar">
+          {sessionMembers.map(m => (
+            <span key={m.user_id} className="presence-member-chip">
+              <span className="presence-dot-live" />
+              {m.username}
+            </span>
+          ))}
+        </div>
+
+        <ul className="messages-list">
+          {sessionMessages.length === 0 && (
+            <li style={{ color: '#ccc', fontSize: '0.8rem', fontStyle: 'italic', border: 'none' }}>
+              Sé el primero en escribir algo…
+            </li>
+          )}
+          {sessionMessages.map(m => (
+            <li key={m.id}>
+              <strong>{m.username}</strong>: {m.content}
+            </li>
+          ))}
+          {typingUsers.length > 0 && (
+            <li className="typing-indicator-row">
+              <span className="typing-dots"><span /><span /><span /></span>
+              <span className="typing-label">
+                {typingUsers.join(', ')} {typingUsers.length === 1 ? 'está escribiendo' : 'están escribiendo'}
+              </span>
+            </li>
+          )}
+          <li ref={sessionEndRef} />
+        </ul>
+
+        <form className="inline-form" onSubmit={onSendSessionMessage}>
+          <input
+            type="text"
+            placeholder="Escribe un mensaje…"
+            value={sessionMsgInput}
+            onChange={e => { setSessionMsgInput(e.target.value); onSessionTyping() }}
+            autoFocus
+          />
+          <button type="submit" disabled={!sessionMsgInput.trim()}>Enviar</button>
+        </form>
+      </div>
+    )
+  }
+
+  const sortedSessions = [...liveSessions].sort(
+    (a, b) => computeAffinity(b.topic) - computeAffinity(a.topic),
+  )
+
+  return (
+    <div>
+      <div className="section-title">Eventos de Presencia</div>
+
+      <h2>Salas activas</h2>
+      {sortedSessions.length === 0 ? (
+        <p style={{ fontSize: '0.85rem', color: '#bbb', marginBottom: '1.5rem' }}>
+          No hay salas activas. Crea la primera.
+        </p>
+      ) : (
+        <div className="session-list">
+          {sortedSessions.map(s => {
+            const count = allSessionMembers.filter(m => m.session_id === s.id).length
+            const af = computeAffinity(s.topic)
+            return (
+              <div key={s.id} className={`session-card${af > 0.15 ? ' session-card--match' : ''}`}>
+                <div className="session-card-top">
+                  <span className="session-card-topic">{s.topic}</span>
+                  {af > 0.15 && (
+                    <span className="session-affinity-tag">
+                      {af > 0.5 ? 'Muy afín' : af > 0.3 ? 'Alta afinidad' : 'Afinidad'}
+                    </span>
+                  )}
+                </div>
+                <div className="session-card-meta">
+                  <span className="session-pulse-dot" />
+                  {count} {count === 1 ? 'persona' : 'personas'} en vivo
+                </div>
+                <button className="session-enter-btn" onClick={() => onJoinSession(s)}>
+                  Entrar →
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <h2>Crear sala nueva</h2>
+      <form className="inline-form" onSubmit={onCreateSession}>
+        <input
+          type="text"
+          placeholder="¿Sobre qué quieres hablar?"
+          value={newSessionTopic}
+          onChange={e => setNewSessionTopic(e.target.value)}
+          maxLength={200}
+        />
+        <button type="submit" disabled={!newSessionTopic.trim()}>Crear</button>
+      </form>
+      {sessionError && <p className="error-text">{sessionError}</p>}
+    </div>
+  )
+}
+
 function SettingsSection({ session, onLogout }: { session: Session; onLogout: () => void }) {
   return (
     <div>
@@ -676,6 +871,20 @@ function App({ session }: { session: Session }) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
 
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([])
+  const [allSessionMembers, setAllSessionMembers] = useState<{ session_id: string; user_id: string }[]>([])
+  const [activeSession, setActiveSession] = useState<LiveSession | null>(null)
+  const [sessionMessages, setSessionMessages] = useState<SessionMessage[]>([])
+  const [sessionMembers, setSessionMembers] = useState<SessionMember[]>([])
+  const [sessionMsgInput, setSessionMsgInput] = useState('')
+  const [newSessionTopic, setNewSessionTopic] = useState('')
+  const [sessionError, setSessionError] = useState('')
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const sessionEndRef = useRef<HTMLLIElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typingChannelRef = useRef<any>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const currentUser = users.find(u => u.id === session.user.id)
 
   // ── Load users (+ real-time) ────────────────────────────────────────────────
@@ -800,6 +1009,136 @@ function App({ session }: { session: Session }) {
     return () => document.removeEventListener('keydown', handleGlobalKey)
   }, [handleGlobalKey])
 
+  // ── Load live sessions (+ real-time) ──────────────────────────────────────
+
+  useEffect(() => {
+    async function fetchSessions() {
+      const now = new Date().toISOString()
+      const [{ data: sessions }, { data: members }] = await Promise.all([
+        supabase.from('live_sessions').select('*').gt('expires_at', now).order('created_at', { ascending: false }),
+        supabase.from('session_members').select('session_id, user_id'),
+      ])
+      if (sessions) setLiveSessions(sessions)
+      if (members) setAllSessionMembers(members)
+    }
+
+    fetchSessions()
+
+    const channel = supabase
+      .channel('presence-sessions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_sessions' }, fetchSessions)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'session_members' }, fetchSessions)
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase])
+
+  // ── Active session: messages, members, typing ──────────────────────────────
+
+  useEffect(() => {
+    if (!activeSession) {
+      setSessionMessages([])
+      setSessionMembers([])
+      setTypingUsers([])
+      return
+    }
+
+    type RawSessionMsg = { id: string; session_id: string; user_id: string; content: string; created_at: string; users: { username: string } | { username: string }[] | null }
+    type RawSessionMember = { session_id: string; user_id: string; joined_at: string; users: { username: string } | { username: string }[] | null }
+
+    async function fetchSessionMessages() {
+      const { data } = await supabase
+        .from('session_messages')
+        .select('id, session_id, user_id, content, created_at, users(username)')
+        .eq('session_id', activeSession!.id)
+        .order('created_at', { ascending: true })
+        .limit(200) as { data: RawSessionMsg[] | null }
+      if (data) {
+        setSessionMessages(data.map(m => ({
+          id: m.id,
+          session_id: m.session_id,
+          user_id: m.user_id,
+          content: m.content,
+          created_at: m.created_at,
+          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+        })))
+      }
+    }
+
+    async function fetchSessionMembers() {
+      const { data } = await supabase
+        .from('session_members')
+        .select('session_id, user_id, joined_at, users(username)')
+        .eq('session_id', activeSession!.id) as { data: RawSessionMember[] | null }
+      if (data) {
+        setSessionMembers(data.map(m => ({
+          session_id: m.session_id,
+          user_id: m.user_id,
+          joined_at: m.joined_at,
+          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+        })))
+      }
+    }
+
+    fetchSessionMessages()
+    fetchSessionMembers()
+    supabase.from('session_members').upsert({ session_id: activeSession.id, user_id: session.user.id }).then()
+
+    const msgChannel = supabase
+      .channel(`s-msgs-${activeSession.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'session_messages',
+        filter: `session_id=eq.${activeSession.id}`,
+      }, async payload => {
+        const row = payload.new as { id: string; session_id: string; user_id: string; content: string; created_at: string }
+        const { data: ud } = await supabase.from('users').select('username').eq('id', row.user_id).single()
+        setSessionMessages(prev => {
+          if (prev.some(m => m.id === row.id)) return prev
+          return [...prev, { ...row, username: ud?.username ?? row.user_id }]
+        })
+      })
+      .subscribe()
+
+    const memberChannel = supabase
+      .channel(`s-members-${activeSession.id}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'session_members',
+        filter: `session_id=eq.${activeSession.id}`,
+      }, fetchSessionMembers)
+      .subscribe()
+
+    const typingCh = supabase
+      .channel(`s-typing-${activeSession.id}`)
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (payload.userId === session.user.id) return
+        setTypingUsers(prev => prev.includes(payload.username) ? prev : [...prev, payload.username])
+      })
+      .on('broadcast', { event: 'idle' }, ({ payload }) => {
+        setTypingUsers(prev => prev.filter(u => u !== payload.username))
+      })
+      .subscribe()
+
+    typingChannelRef.current = typingCh
+
+    return () => {
+      supabase.from('session_members').delete()
+        .eq('session_id', activeSession.id)
+        .eq('user_id', session.user.id)
+        .then()
+      supabase.removeChannel(msgChannel)
+      supabase.removeChannel(memberChannel)
+      supabase.removeChannel(typingCh)
+      typingChannelRef.current = null
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    }
+  }, [activeSession, supabase, session.user.id])
+
+  // ── Scroll to bottom on session messages ───────────────────────────────────
+
+  useEffect(() => {
+    sessionEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [sessionMessages])
+
   // ── Send message ────────────────────────────────────────────────────────────
 
   async function startRecording() {
@@ -916,11 +1255,72 @@ function App({ session }: { session: Session }) {
     }
   }
 
+  // ── Presence handlers ───────────────────────────────────────────────────────
+
+  async function createSession(e: FormEvent) {
+    e.preventDefault()
+    const topic = newSessionTopic.trim()
+    if (!topic) return
+    setSessionError('')
+    const { data, error } = await supabase
+      .from('live_sessions')
+      .insert({ topic, created_by: session.user.id })
+      .select()
+      .single()
+    if (error) { setSessionError(error.message); return }
+    setNewSessionTopic('')
+    if (data) setActiveSession(data as LiveSession)
+  }
+
+  function joinSession(s: LiveSession) {
+    setActiveSession(s)
+  }
+
+  function leaveSession() {
+    setActiveSession(null)
+  }
+
+  function handleSessionTyping() {
+    const username = currentUser?.username ?? 'alguien'
+    typingChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: session.user.id, username },
+    })
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => {
+      typingChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'idle',
+        payload: { userId: session.user.id, username },
+      })
+    }, 1500)
+  }
+
+  async function sendSessionMessage(e: FormEvent) {
+    e.preventDefault()
+    const content = sessionMsgInput.trim()
+    if (!content || !activeSession) return
+    setSessionMsgInput('')
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'idle',
+      payload: { userId: session.user.id, username: currentUser?.username ?? 'alguien' },
+    })
+    await supabase.from('session_messages').insert({
+      session_id: activeSession.id,
+      user_id: session.user.id,
+      content,
+    })
+  }
+
   function handleLogout() {
     supabase.auth.signOut()
   }
 
   function handleSectionChange(s: Section) {
+    if (activeSession && s !== 'presence') setActiveSession(null)
     setActiveSection(s)
   }
 
@@ -977,6 +1377,28 @@ function App({ session }: { session: Session }) {
             />
           )}
           {activeSection === 'explore' && <ExploreSection />}
+          {activeSection === 'presence' && (
+            <PresenceSection
+              currentUser={currentUser}
+              liveSessions={liveSessions}
+              allSessionMembers={allSessionMembers}
+              activeSession={activeSession}
+              sessionMessages={sessionMessages}
+              sessionMembers={sessionMembers}
+              typingUsers={typingUsers}
+              sessionMsgInput={sessionMsgInput}
+              setSessionMsgInput={setSessionMsgInput}
+              newSessionTopic={newSessionTopic}
+              setNewSessionTopic={setNewSessionTopic}
+              sessionError={sessionError}
+              onJoinSession={joinSession}
+              onLeaveSession={leaveSession}
+              onCreateSession={createSession}
+              onSendSessionMessage={sendSessionMessage}
+              onSessionTyping={handleSessionTyping}
+              sessionEndRef={sessionEndRef}
+            />
+          )}
           {activeSection === 'settings' && (
             <SettingsSection session={session} onLogout={handleLogout} />
           )}
