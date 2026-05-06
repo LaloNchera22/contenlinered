@@ -1,5 +1,14 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// ─── Database Types ──────────────────────────────────────────────────────────
+// Mirrors the SQL schema in /supabase (schema.sql + migrations/*.sql).
+// Keep in sync to avoid runtime errors from selecting/inserting unknown columns.
+
+type FriendshipStatus = 'pending' | 'accepted' | 'rejected'
+type AttachmentType = 'pdf' | 'audio'
+type NotificationType = 'friend_request' | 'friend_accepted' | 'mention'
+type LinkType = 'github' | 'arxiv' | 'orcid' | 'linkedin' | 'twitter' | 'website'
+
 export type Database = {
   public: {
     Tables: {
@@ -8,7 +17,6 @@ export type Database = {
           id: string
           username: string
           public_status: string
-          status_score: number
           created_at: string
           updated_at: string
         }
@@ -16,15 +24,12 @@ export type Database = {
           id: string
           username: string
           public_status?: string
-          status_score?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
           username?: string
           public_status?: string
-          status_score?: number
-          created_at?: string
           updated_at?: string
         }
         Relationships: []
@@ -33,36 +38,39 @@ export type Database = {
         Row: {
           id: string
           name: string
-          topic_vector: number[] | null
+          description: string
+          created_by: string | null
+          tags: string[]
           created_at: string
         }
         Insert: {
           id?: string
           name: string
-          topic_vector?: number[] | null
+          description?: string
+          created_by?: string | null
+          tags?: string[]
           created_at?: string
         }
         Update: {
           name?: string
-          topic_vector?: number[] | null
-          created_at?: string
+          description?: string
+          created_by?: string | null
+          tags?: string[]
         }
         Relationships: []
       }
-      memberships: {
+      community_members: {
         Row: {
-          user_id: string
           community_id: string
+          user_id: string
           joined_at: string
         }
         Insert: {
-          user_id: string
           community_id: string
+          user_id: string
           joined_at?: string
         }
         Update: {
-          user_id?: string
-          community_id?: string
           joined_at?: string
         }
         Relationships: []
@@ -73,8 +81,9 @@ export type Database = {
           community_id: string
           user_id: string
           content: string
+          title: string | null
           attachment_url: string | null
-          attachment_type: 'pdf' | 'audio' | null
+          attachment_type: AttachmentType | null
           created_at: string
         }
         Insert: {
@@ -82,25 +91,59 @@ export type Database = {
           community_id: string
           user_id: string
           content?: string
+          title?: string | null
           attachment_url?: string | null
-          attachment_type?: 'pdf' | 'audio' | null
+          attachment_type?: AttachmentType | null
           created_at?: string
         }
         Update: {
-          community_id?: string
-          user_id?: string
           content?: string
+          title?: string | null
           attachment_url?: string | null
-          attachment_type?: 'pdf' | 'audio' | null
-          created_at?: string
+          attachment_type?: AttachmentType | null
         }
         Relationships: [
           {
-            foreignKeyName: "messages_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: 'messages_user_id_fkey'
+            columns: ['user_id']
             isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      comments: {
+        Row: {
+          id: string
+          message_id: string
+          user_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          user_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          content?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'comments_message_id_fkey'
+            columns: ['message_id']
+            isOneToOne: false
+            referencedRelation: 'messages'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'comments_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
           }
         ]
       }
@@ -181,55 +224,124 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "private_messages_sender_id_fkey"
-            columns: ["sender_id"]
+            foreignKeyName: 'private_messages_sender_id_fkey'
+            columns: ['sender_id']
             isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            referencedRelation: 'users'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "private_messages_receiver_id_fkey"
-            columns: ["receiver_id"]
+            foreignKeyName: 'private_messages_receiver_id_fkey'
+            columns: ['receiver_id']
             isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            referencedRelation: 'users'
+            referencedColumns: ['id']
           }
         ]
       }
-      comments: {
+      friendships: {
         Row: {
           id: string
-          message_id: string
-          user_id: string
-          content: string
+          requester_id: string
+          addressee_id: string
+          status: FriendshipStatus
           created_at: string
         }
         Insert: {
           id?: string
-          message_id: string
-          user_id: string
-          content: string
+          requester_id: string
+          addressee_id: string
+          status?: FriendshipStatus
           created_at?: string
         }
         Update: {
-          content?: string
+          status?: FriendshipStatus
         }
-        Relationships: [
-          {
-            foreignKeyName: "comments_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "comments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: NotificationType
+          from_user_id: string | null
+          entity_id: string | null
+          content: string
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: NotificationType
+          from_user_id?: string | null
+          entity_id?: string | null
+          content?: string
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          read?: boolean
+        }
+        Relationships: []
+      }
+      user_skills: {
+        Row: {
+          user_id: string
+          skill: string
+        }
+        Insert: {
+          user_id: string
+          skill: string
+        }
+        Update: {
+          skill?: string
+        }
+        Relationships: []
+      }
+      user_links: {
+        Row: {
+          user_id: string
+          link_type: LinkType
+          url: string
+        }
+        Insert: {
+          user_id: string
+          link_type: LinkType
+          url: string
+        }
+        Update: {
+          url?: string
+        }
+        Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          message_id: string
+          user_id: string
+        }
+        Update: Record<string, never>
+        Relationships: []
+      }
+      saved_posts: {
+        Row: {
+          user_id: string
+          message_id: string
+          saved_at: string
+        }
+        Insert: {
+          user_id: string
+          message_id: string
+          saved_at?: string
+        }
+        Update: {
+          saved_at?: string
+        }
+        Relationships: []
       }
     }
     Views: Record<string, never>
@@ -241,6 +353,7 @@ export type Database = {
 
 // ─── Browser client (singleton) ──────────────────────────────────────────────
 // Safe to call in Client Components; uses the anon key only.
+
 let browserClient: ReturnType<typeof createBrowserClient<Database>> | undefined
 
 export function getSupabaseBrowserClient() {
