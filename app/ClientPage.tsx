@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, FormEvent, Component, ReactNode, useCallback } from 'react'
+import { useState, useEffect, useRef, FormEvent, Component, ReactNode } from 'react'
 import { Session } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 
@@ -483,6 +483,17 @@ function BottomNav({
   )
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+// Supabase joins on a to-one relation can be typed as either a single object
+// or an array depending on the schema introspection. Normalize both shapes.
+type UserRelation = { username: string } | { username: string }[] | null
+function pickUsername(rel: UserRelation, fallback: string): string {
+  if (!rel) return fallback
+  if (Array.isArray(rel)) return rel[0]?.username ?? fallback
+  return rel.username ?? fallback
+}
+
 // ─── Content Sections ───────────────────────────────────────────────────────────
 
 // ─── Content renderer: @mentions, ```code```, and URL link previews ─────────────
@@ -610,6 +621,7 @@ function CommunitiesSection({
   attachmentType,
   isRecording,
   isUploading,
+  recordError,
   onPdfSelect,
   onStartRecord,
   onStopRecord,
@@ -653,6 +665,7 @@ function CommunitiesSection({
   attachmentType: 'pdf' | 'audio' | null
   isRecording: boolean
   isUploading: boolean
+  recordError: string
   onPdfSelect: (file: File) => void
   onStartRecord: () => void
   onStopRecord: () => void
@@ -975,6 +988,7 @@ function CommunitiesSection({
                   {isUploading ? 'Subiendo…' : 'Publicar'}
                 </button>
               </form>
+              {recordError && <p className="error-text">{recordError}</p>}
             </div>
           )}
         </>
@@ -2210,6 +2224,7 @@ function App({ session }: { session: Session }) {
   const [attachmentType, setAttachmentType] = useState<'pdf' | 'audio' | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [recordError, setRecordError] = useState('')
   const messagesEndRef = useRef<HTMLLIElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -2235,8 +2250,7 @@ function App({ session }: { session: Session }) {
   const [sessionError, setSessionError] = useState('')
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const sessionEndRef = useRef<HTMLLIElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const typingChannelRef = useRef<any>(null)
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Reddit-style state ──────────────────────────────────────────────────────
@@ -2306,6 +2320,18 @@ function App({ session }: { session: Session }) {
   useEffect(() => {
     if (!activeCommunity) return
 
+    type RawMessage = {
+      id: string
+      community_id: string
+      user_id: string
+      content: string
+      title: string | null
+      attachment_url: string | null
+      attachment_type: 'pdf' | 'audio' | null
+      created_at: string
+      users: UserRelation
+    }
+
     async function fetchMessages() {
       const { data } = await supabase
         .from('messages')
@@ -2313,20 +2339,20 @@ function App({ session }: { session: Session }) {
         .eq('community_id', activeCommunity!.id)
         .order('created_at', { ascending: true })
         .limit(100)
+        .returns<RawMessage[]>()
 
       if (data) {
         setMessages(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          data.map((m: any) => ({
+          data.map(m => ({
             id: m.id,
             community_id: m.community_id,
             user_id: m.user_id,
             content: m.content,
             title: m.title ?? null,
             attachment_url: m.attachment_url,
-            attachment_type: m.attachment_type as 'pdf' | 'audio' | null,
+            attachment_type: m.attachment_type,
             created_at: m.created_at,
-            username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+            username: pickUsername(m.users, m.user_id),
           })),
         )
       }
@@ -2400,7 +2426,7 @@ function App({ session }: { session: Session }) {
       user_id: string
       content: string
       created_at: string
-      users: { username: string } | { username: string }[] | null
+      users: UserRelation
     }
 
     async function fetchComments() {
@@ -2416,7 +2442,8 @@ function App({ session }: { session: Session }) {
         .from('comments')
         .select('id, message_id, user_id, content, created_at, users(username)')
         .in('message_id', messageIds)
-        .order('created_at', { ascending: true }) as { data: RawComment[] | null }
+        .order('created_at', { ascending: true })
+        .returns<RawComment[]>()
 
       if (data) {
         const grouped: Record<string, Comment[]> = {}
@@ -2427,7 +2454,7 @@ function App({ session }: { session: Session }) {
             user_id: c.user_id,
             content: c.content,
             created_at: c.created_at,
-            username: (Array.isArray(c.users) ? c.users[0]?.username : (c.users as { username: string } | null)?.username) ?? c.user_id,
+            username: pickUsername(c.users, c.user_id),
           }
           if (!grouped[c.message_id]) grouped[c.message_id] = []
           grouped[c.message_id].push(comment)
@@ -2463,8 +2490,7 @@ function App({ session }: { session: Session }) {
 
   useEffect(() => {
     async function fetchMemberships() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).from('community_members').select('community_id, user_id') as { data: { community_id: string; user_id: string }[] | null }
+      const { data } = await supabase.from('community_members').select('community_id, user_id')
       if (data) {
         setAllCommunityMembers(data)
         setJoinedCommunityIds(new Set(
@@ -2483,12 +2509,11 @@ function App({ session }: { session: Session }) {
   // ── Load saved post IDs ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any)
+    supabase
       .from('saved_posts')
       .select('message_id')
       .eq('user_id', session.user.id)
-      .then(({ data }: { data: { message_id: string }[] | null }) => {
+      .then(({ data }) => {
         if (data) setSavedPostIds(new Set(data.map(s => s.message_id)))
       })
   }, [supabase, session.user.id])
@@ -2502,13 +2527,24 @@ function App({ session }: { session: Session }) {
     }
     const timer = setTimeout(async () => {
       const q = `%${searchQuery}%`
+      type PostWithUser = {
+        id: string
+        community_id: string
+        user_id: string
+        content: string
+        title: string | null
+        attachment_url: string | null
+        attachment_type: 'pdf' | 'audio' | null
+        created_at: string
+        users: UserRelation
+      }
       const [{ data: posts }, { data: comms }] = await Promise.all([
         supabase
           .from('messages')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .select('id, community_id, user_id, content, title, attachment_url, attachment_type, created_at, users(username)' as any)
+          .select('id, community_id, user_id, content, title, attachment_url, attachment_type, created_at, users(username)')
           .or(`content.ilike.${q},title.ilike.${q}`)
-          .limit(15),
+          .limit(15)
+          .returns<PostWithUser[]>(),
         supabase
           .from('communities')
           .select('id, name, description, created_by')
@@ -2516,8 +2552,7 @@ function App({ session }: { session: Session }) {
           .limit(10),
       ])
       setSearchResults({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        posts: (posts ?? []).map((m: any) => ({
+        posts: (posts ?? []).map(m => ({
           id: m.id,
           community_id: m.community_id,
           user_id: m.user_id,
@@ -2526,9 +2561,9 @@ function App({ session }: { session: Session }) {
           attachment_url: m.attachment_url ?? null,
           attachment_type: m.attachment_type ?? null,
           created_at: m.created_at,
-          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+          username: pickUsername(m.users, m.user_id),
         })),
-        communities: (comms ?? []) as unknown as Community[],
+        communities: (comms ?? []) as Community[],
       })
       if ((posts?.length ?? 0) > 0 || (comms?.length ?? 0) > 0) {
         setActiveSection('explore')
@@ -2541,12 +2576,12 @@ function App({ session }: { session: Session }) {
 
   useEffect(() => {
     async function fetchFriendships() {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('friendships')
         .select('*')
         .or(`requester_id.eq.${session.user.id},addressee_id.eq.${session.user.id}`)
         .order('created_at', { ascending: false })
-      if (data) setFriendships(data as Friendship[])
+      if (data) setFriendships(data)
     }
     fetchFriendships()
     const ch = supabase
@@ -2560,13 +2595,13 @@ function App({ session }: { session: Session }) {
 
   useEffect(() => {
     async function fetchNotifications() {
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(50)
-      if (data) setNotifications(data as Notification[])
+      if (data) setNotifications(data)
     }
     fetchNotifications()
     const ch = supabase
@@ -2581,10 +2616,10 @@ function App({ session }: { session: Session }) {
 
   useEffect(() => {
     async function fetchSkills() {
-      const { data } = await (supabase as any).from('user_skills').select('user_id, skill')
+      const { data } = await supabase.from('user_skills').select('user_id, skill')
       if (data) {
         const map: Record<string, string[]> = {}
-        ;(data as { user_id: string; skill: string }[]).forEach(({ user_id, skill }) => {
+        data.forEach(({ user_id, skill }) => {
           if (!map[user_id]) map[user_id] = []
           map[user_id].push(skill)
         })
@@ -2603,31 +2638,30 @@ function App({ session }: { session: Session }) {
   // ── Load my links ────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    ;(supabase as any)
+    supabase
       .from('user_links')
       .select('user_id, link_type, url')
       .eq('user_id', session.user.id)
-      .then(({ data }: { data: UserLink[] | null }) => {
+      .then(({ data }) => {
         if (data) setMyLinks(data)
       })
   }, [supabase, session.user.id])
 
   // ── Ctrl+K focuses search bar; Esc closes mobile drawer ─────────────────────
 
-  const handleGlobalKey = useCallback((e: KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-      e.preventDefault()
-      searchRef.current?.focus()
-    }
-    if (e.key === 'Escape') {
-      setMobileMenuOpen(false)
-    }
-  }, [])
-
   useEffect(() => {
+    function handleGlobalKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false)
+      }
+    }
     document.addEventListener('keydown', handleGlobalKey)
     return () => document.removeEventListener('keydown', handleGlobalKey)
-  }, [handleGlobalKey])
+  }, [])
 
   // ── Lock body scroll when mobile drawer is open ─────────────────────────────
 
@@ -2673,8 +2707,8 @@ function App({ session }: { session: Session }) {
       return
     }
 
-    type RawSessionMsg = { id: string; session_id: string; user_id: string; content: string; created_at: string; users: { username: string } | { username: string }[] | null }
-    type RawSessionMember = { session_id: string; user_id: string; joined_at: string; users: { username: string } | { username: string }[] | null }
+    type RawSessionMsg = { id: string; session_id: string; user_id: string; content: string; created_at: string; users: UserRelation }
+    type RawSessionMember = { session_id: string; user_id: string; joined_at: string; users: UserRelation }
 
     async function fetchSessionMessages() {
       const { data } = await supabase
@@ -2682,7 +2716,8 @@ function App({ session }: { session: Session }) {
         .select('id, session_id, user_id, content, created_at, users(username)')
         .eq('session_id', activeSession!.id)
         .order('created_at', { ascending: true })
-        .limit(200) as { data: RawSessionMsg[] | null }
+        .limit(200)
+        .returns<RawSessionMsg[]>()
       if (data) {
         setSessionMessages(data.map(m => ({
           id: m.id,
@@ -2690,7 +2725,7 @@ function App({ session }: { session: Session }) {
           user_id: m.user_id,
           content: m.content,
           created_at: m.created_at,
-          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+          username: pickUsername(m.users, m.user_id),
         })))
       }
     }
@@ -2699,20 +2734,26 @@ function App({ session }: { session: Session }) {
       const { data } = await supabase
         .from('session_members')
         .select('session_id, user_id, joined_at, users(username)')
-        .eq('session_id', activeSession!.id) as { data: RawSessionMember[] | null }
+        .eq('session_id', activeSession!.id)
+        .returns<RawSessionMember[]>()
       if (data) {
         setSessionMembers(data.map(m => ({
           session_id: m.session_id,
           user_id: m.user_id,
           joined_at: m.joined_at,
-          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+          username: pickUsername(m.users, m.user_id),
         })))
       }
     }
 
     fetchSessionMessages()
     fetchSessionMembers()
-    supabase.from('session_members').upsert({ session_id: activeSession.id, user_id: session.user.id }).then()
+    supabase
+      .from('session_members')
+      .upsert({ session_id: activeSession.id, user_id: session.user.id })
+      .then(({ error }) => {
+        if (error) console.error('session_members upsert failed:', error.message)
+      })
 
     const msgChannel = supabase
       .channel(`s-msgs-${activeSession.id}`)
@@ -2751,10 +2792,14 @@ function App({ session }: { session: Session }) {
     typingChannelRef.current = typingCh
 
     return () => {
-      supabase.from('session_members').delete()
+      supabase
+        .from('session_members')
+        .delete()
         .eq('session_id', activeSession.id)
         .eq('user_id', session.user.id)
-        .then()
+        .then(({ error }) => {
+          if (error) console.error('session_members delete failed:', error.message)
+        })
       supabase.removeChannel(msgChannel)
       supabase.removeChannel(memberChannel)
       supabase.removeChannel(typingCh)
@@ -2783,7 +2828,7 @@ function App({ session }: { session: Session }) {
       receiver_id: string
       content: string
       created_at: string
-      users: { username: string } | { username: string }[] | null
+      users: UserRelation
     }
 
     async function fetchDms() {
@@ -2792,7 +2837,8 @@ function App({ session }: { session: Session }) {
         .select('id, sender_id, receiver_id, content, created_at, users!private_messages_sender_id_fkey(username)')
         .or(`and(sender_id.eq.${session.user.id},receiver_id.eq.${activeDm!.id}),and(sender_id.eq.${activeDm!.id},receiver_id.eq.${session.user.id})`)
         .order('created_at', { ascending: true })
-        .limit(100) as { data: RawDm[] | null }
+        .limit(100)
+        .returns<RawDm[]>()
       if (data) {
         setDmMessages(data.map(m => ({
           id: m.id,
@@ -2800,7 +2846,7 @@ function App({ session }: { session: Session }) {
           receiver_id: m.receiver_id,
           content: m.content,
           created_at: m.created_at,
-          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.sender_id,
+          username: pickUsername(m.users, m.sender_id),
         })))
       }
     }
@@ -2839,6 +2885,11 @@ function App({ session }: { session: Session }) {
   // ── Send message ────────────────────────────────────────────────────────────
 
   async function startRecording() {
+    setRecordError('')
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setRecordError('Tu navegador no soporta grabación de audio.')
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mr = new MediaRecorder(stream)
@@ -2855,7 +2906,7 @@ function App({ session }: { session: Session }) {
       mediaRecorderRef.current = mr
       setIsRecording(true)
     } catch {
-      alert('No se pudo acceder al micrófono.')
+      setRecordError('No se pudo acceder al micrófono. Revisa los permisos del navegador.')
     }
   }
 
@@ -2922,24 +2973,27 @@ function App({ session }: { session: Session }) {
     setAttachedFile(null)
     setAttachmentType(null)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inserted } = await (supabase.from('messages') as any).insert({
-      community_id: activeCommunity.id,
-      user_id: session.user.id,
-      content: content || '',
-      title,
-      attachment_url,
-      attachment_type,
-    }).select('id').single()
+    const { data: inserted } = await supabase
+      .from('messages')
+      .insert({
+        community_id: activeCommunity.id,
+        user_id: session.user.id,
+        content: content || '',
+        title,
+        attachment_url,
+        attachment_type,
+      })
+      .select('id')
+      .single()
 
     // Fire mention notifications
     if (inserted?.id) {
       const mentionMatches = (content || '').match(MENTION_REGEX) ?? []
-      const mentionedUsernames = new Set(mentionMatches.map((m: string) => m.slice(1).toLowerCase()))
+      const mentionedUsernames = new Set(mentionMatches.map(m => m.slice(1).toLowerCase()))
       for (const uname of mentionedUsernames) {
         const target = users.find(u => u.username.toLowerCase() === uname && u.id !== session.user.id)
         if (target) {
-          await (supabase as any).from('notifications').insert({
+          await supabase.from('notifications').insert({
             user_id: target.id,
             type: 'mention',
             from_user_id: session.user.id,
@@ -2971,20 +3025,24 @@ function App({ session }: { session: Session }) {
     const content = commentInputs[messageId]?.trim()
     if (!content) return
     setCommentInputs(prev => ({ ...prev, [messageId]: '' }))
-    const { data: inserted } = await (supabase as any).from('comments').insert({
-      message_id: messageId,
-      user_id: session.user.id,
-      content,
-    }).select('id').single()
+    const { data: inserted } = await supabase
+      .from('comments')
+      .insert({
+        message_id: messageId,
+        user_id: session.user.id,
+        content,
+      })
+      .select('id')
+      .single()
 
     // Fire mention notifications from comments
     if (inserted?.id) {
       const mentionMatches = content.match(MENTION_REGEX) ?? []
-      const mentionedUsernames = new Set(mentionMatches.map((m: string) => m.slice(1).toLowerCase()))
+      const mentionedUsernames = new Set(mentionMatches.map(m => m.slice(1).toLowerCase()))
       for (const uname of mentionedUsernames) {
         const target = users.find(u => u.username.toLowerCase() === uname && u.id !== session.user.id)
         if (target) {
-          await (supabase as any).from('notifications').insert({
+          await supabase.from('notifications').insert({
             user_id: target.id,
             type: 'mention',
             from_user_id: session.user.id,
@@ -3036,11 +3094,8 @@ function App({ session }: { session: Session }) {
 
   // ── Reddit-style handlers ───────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-
   async function joinCommunity(communityId: string) {
-    const { error } = await db
+    const { error } = await supabase
       .from('community_members')
       .insert({ community_id: communityId, user_id: session.user.id })
     if (!error) {
@@ -3050,24 +3105,24 @@ function App({ session }: { session: Session }) {
   }
 
   async function leaveCommunity(communityId: string) {
-    await db
+    await supabase
       .from('community_members')
       .delete()
       .eq('community_id', communityId)
       .eq('user_id', session.user.id)
     setJoinedCommunityIds(prev => { const next = new Set(prev); next.delete(communityId); return next })
-    setAllCommunityMembers(prev => prev.filter((m: { community_id: string; user_id: string }) => !(m.community_id === communityId && m.user_id === session.user.id)))
+    setAllCommunityMembers(prev => prev.filter(m => !(m.community_id === communityId && m.user_id === session.user.id)))
   }
 
   async function savePost(messageId: string) {
-    const { error } = await db
+    const { error } = await supabase
       .from('saved_posts')
       .insert({ user_id: session.user.id, message_id: messageId })
     if (!error) setSavedPostIds(prev => new Set([...prev, messageId]))
   }
 
   async function unsavePost(messageId: string) {
-    await db
+    await supabase
       .from('saved_posts')
       .delete()
       .eq('user_id', session.user.id)
@@ -3081,7 +3136,7 @@ function App({ session }: { session: Session }) {
     const name = newCommunityName.trim()
     if (!name) return
     setCommunityError('')
-    const { error } = await db.from('communities').insert({
+    const { error } = await supabase.from('communities').insert({
       name,
       description: newCommunityDesc.trim(),
       created_by: session.user.id,
@@ -3093,19 +3148,33 @@ function App({ session }: { session: Session }) {
   }
 
   async function loadSavedMessages() {
-    const { data } = await db
+    type SavedMessageRow = {
+      message_id: string
+      messages: {
+        id: string
+        community_id: string
+        user_id: string
+        content: string
+        title: string | null
+        attachment_url: string | null
+        attachment_type: 'pdf' | 'audio' | null
+        created_at: string
+        users: UserRelation
+      } | null
+    }
+    const { data } = await supabase
       .from('saved_posts')
       .select('message_id, messages(id, community_id, user_id, content, title, attachment_url, attachment_type, created_at, users(username))')
       .eq('user_id', session.user.id)
-      .order('saved_at', { ascending: false }) as { data: { message_id: string; messages: unknown }[] | null }
+      .order('saved_at', { ascending: false })
+      .returns<SavedMessageRow[]>()
 
     if (data) {
       setSavedMessages(
         data
           .map(s => s.messages)
-          .filter(Boolean)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((m: any) => ({
+          .filter((m): m is NonNullable<SavedMessageRow['messages']> => m !== null)
+          .map(m => ({
             id: m.id,
             community_id: m.community_id,
             user_id: m.user_id,
@@ -3114,7 +3183,7 @@ function App({ session }: { session: Session }) {
             attachment_url: m.attachment_url ?? null,
             attachment_type: m.attachment_type ?? null,
             created_at: m.created_at,
-            username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+            username: pickUsername(m.users, m.user_id),
           }))
       )
     }
@@ -3129,14 +3198,14 @@ function App({ session }: { session: Session }) {
   // ── Friend request handlers ──────────────────────────────────────────────────
 
   async function sendFriendRequest(addresseeId: string) {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('friendships')
       .insert({ requester_id: session.user.id, addressee_id: addresseeId })
       .select()
       .single()
     if (!error && data) {
-      setFriendships(prev => [data as Friendship, ...prev])
-      await (supabase as any).from('notifications').insert({
+      setFriendships(prev => [data, ...prev])
+      await supabase.from('notifications').insert({
         user_id: addresseeId,
         type: 'friend_request',
         from_user_id: session.user.id,
@@ -3147,7 +3216,7 @@ function App({ session }: { session: Session }) {
   }
 
   async function acceptFriendRequest(friendshipId: string) {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('friendships')
       .update({ status: 'accepted' })
       .eq('id', friendshipId)
@@ -3155,7 +3224,7 @@ function App({ session }: { session: Session }) {
       const fs = friendships.find(f => f.id === friendshipId)
       setFriendships(prev => prev.map(f => f.id === friendshipId ? { ...f, status: 'accepted' } : f))
       if (fs) {
-        await (supabase as any).from('notifications').insert({
+        await supabase.from('notifications').insert({
           user_id: fs.requester_id,
           type: 'friend_accepted',
           from_user_id: session.user.id,
@@ -3167,14 +3236,14 @@ function App({ session }: { session: Session }) {
   }
 
   async function rejectOrCancelFriendship(friendshipId: string) {
-    await (supabase as any).from('friendships').delete().eq('id', friendshipId)
+    await supabase.from('friendships').delete().eq('id', friendshipId)
     setFriendships(prev => prev.filter(f => f.id !== friendshipId))
   }
 
   // ── Skills handlers ──────────────────────────────────────────────────────────
 
   async function addSkill(skill: string) {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('user_skills')
       .insert({ user_id: session.user.id, skill })
     if (!error) {
@@ -3187,7 +3256,7 @@ function App({ session }: { session: Session }) {
   }
 
   async function removeSkill(skill: string) {
-    await (supabase as any)
+    await supabase
       .from('user_skills')
       .delete()
       .eq('user_id', session.user.id)
@@ -3202,7 +3271,7 @@ function App({ session }: { session: Session }) {
   // ── Links handlers ───────────────────────────────────────────────────────────
 
   async function upsertLink(link_type: UserLink['link_type'], url: string) {
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('user_links')
       .upsert({ user_id: session.user.id, link_type, url })
     if (!error) {
@@ -3214,7 +3283,7 @@ function App({ session }: { session: Session }) {
   }
 
   async function removeLink(link_type: UserLink['link_type']) {
-    await (supabase as any)
+    await supabase
       .from('user_links')
       .delete()
       .eq('user_id', session.user.id)
@@ -3225,12 +3294,12 @@ function App({ session }: { session: Session }) {
   // ── Notification handlers ────────────────────────────────────────────────────
 
   async function markNotificationRead(id: string) {
-    await (supabase as any).from('notifications').update({ read: true }).eq('id', id)
+    await supabase.from('notifications').update({ read: true }).eq('id', id)
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   }
 
   async function markAllNotificationsRead() {
-    await (supabase as any)
+    await supabase
       .from('notifications')
       .update({ read: true })
       .eq('user_id', session.user.id)
@@ -3365,6 +3434,7 @@ function App({ session }: { session: Session }) {
               attachmentType={attachmentType}
               isRecording={isRecording}
               isUploading={isUploading}
+              recordError={recordError}
               onPdfSelect={handlePdfSelect}
               onStartRecord={startRecording}
               onStopRecord={stopRecording}

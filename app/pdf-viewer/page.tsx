@@ -1,7 +1,7 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useMemo } from 'react'
 
 function IcoDownload() {
   return (
@@ -22,15 +22,48 @@ function IcoArrowLeft() {
   )
 }
 
+// Only allow PDFs hosted on the configured Supabase project. This prevents the
+// viewer from being abused as an open redirect / phishing surface.
+function isAllowedPdfUrl(raw: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(raw)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:') return false
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!supabaseUrl) return false
+
+  let supabaseHost: string
+  try {
+    supabaseHost = new URL(supabaseUrl).host
+  } catch {
+    return false
+  }
+  return parsed.host === supabaseHost
+}
+
+function goBack(router: ReturnType<typeof useRouter>) {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/')
+  }
+}
+
 function PDFViewer() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const url = searchParams.get('url')
+  const isValid = useMemo(() => (url ? isAllowedPdfUrl(url) : false), [url])
 
-  if (!url) {
+  if (!url || !isValid) {
     return (
       <div className="pdf-error">
         <p>URL de PDF no válida.</p>
-        <button onClick={() => window.history.back()} className="pdf-back-btn">
+        <button onClick={() => goBack(router)} className="pdf-back-btn">
           <IcoArrowLeft /> Volver
         </button>
       </div>
@@ -43,7 +76,7 @@ function PDFViewer() {
   return (
     <div className="pdf-page">
       <header className="pdf-header">
-        <button onClick={() => window.history.back()} className="pdf-back-btn">
+        <button onClick={() => goBack(router)} className="pdf-back-btn">
           <IcoArrowLeft /> Volver
         </button>
         <span className="pdf-header-filename" title={filename}>{filename}</span>
@@ -51,6 +84,7 @@ function PDFViewer() {
           href={url}
           download={filename}
           className="pdf-download-btn"
+          rel="noopener noreferrer"
         >
           <IcoDownload /> Descargar PDF
         </a>
@@ -60,6 +94,7 @@ function PDFViewer() {
           src={url}
           className="pdf-iframe"
           title={filename}
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
         />
       </div>
     </div>
