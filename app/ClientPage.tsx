@@ -298,23 +298,42 @@ const IcoUserPlus = ({ size = 14 }: IcoProps) => (
   </Ico>
 )
 
+const IcoMenu = ({ size = 22 }: IcoProps) => (
+  <Ico size={size}>
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </Ico>
+)
+
 // ─── TopBar ──────────────────────────────────────────────────────────────────────
 
 function TopBar({
   searchQuery,
   onSearchChange,
   searchRef,
+  onMenuToggle,
 }: {
   searchQuery: string
   onSearchChange: (v: string) => void
   searchRef: React.RefObject<HTMLInputElement | null>
+  onMenuToggle: () => void
 }) {
   return (
-    <div className="topbar">
+    <header className="topbar" role="banner">
+      <button
+        type="button"
+        className="topbar-menu-btn"
+        onClick={onMenuToggle}
+        aria-label="Abrir menú de navegación"
+      >
+        <IcoMenu size={22} />
+      </button>
       <span className="topbar-brand">CONTENLINE</span>
       <div className="topbar-search-wrap">
-        <div className="topbar-search" onClick={() => searchRef.current?.focus()}>
-          <span className="topbar-search-icon"><IcoSearch size={15} /></span>
+        <label className="topbar-search" onClick={() => searchRef.current?.focus()}>
+          <span className="topbar-search-icon" aria-hidden><IcoSearch size={15} /></span>
+          <span className="sr-only">Buscar</span>
           <input
             ref={searchRef}
             className="topbar-input"
@@ -322,11 +341,12 @@ function TopBar({
             placeholder="Buscar…"
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
+            aria-label="Buscar comunidades, publicaciones y personas"
           />
-          <span className="topbar-kbd">Ctrl K</span>
-        </div>
+          <span className="topbar-kbd" aria-hidden>Ctrl K</span>
+        </label>
       </div>
-    </div>
+    </header>
   )
 }
 
@@ -349,49 +369,117 @@ function Sidebar({
   onLogout,
   username,
   unreadCount,
+  open,
+  onClose,
 }: {
   activeSection: Section
   onSectionChange: (s: Section) => void
   onLogout: () => void
   username: string
   unreadCount: number
+  open: boolean
+  onClose: () => void
+}) {
+  const handleSelect = (s: Section) => {
+    onSectionChange(s)
+    onClose()
+  }
+
+  return (
+    <>
+      <div
+        className={`sidebar-overlay${open ? ' sidebar-overlay--open' : ''}`}
+        onClick={onClose}
+        aria-hidden={!open}
+      />
+      <aside
+        className={`sidebar${open ? ' sidebar--open' : ''}`}
+        aria-label="Navegación principal"
+        role="navigation"
+      >
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(({ section, label, Icon }) => (
+            <button
+              key={section}
+              className={`sidebar-item${activeSection === section ? ' sidebar-item--active' : ''}`}
+              onClick={() => handleSelect(section)}
+              title={label}
+              aria-current={activeSection === section ? 'page' : undefined}
+            >
+              <span className="sidebar-icon-wrap">
+                <Icon />
+                {section === 'notifications' && unreadCount > 0 && (
+                  <span className="notif-badge" aria-label={`${unreadCount} sin leer`}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </span>
+              <span className="sidebar-label">{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="sidebar-user">
+            <span className="sidebar-user-dot" aria-hidden />
+            <span className="sidebar-user-name">{username}</span>
+          </div>
+          <button
+            className="sidebar-item sidebar-item--logout"
+            onClick={onLogout}
+            title="Salir"
+          >
+            <IcoLogout />
+            <span className="sidebar-label">Salir</span>
+          </button>
+        </div>
+      </aside>
+    </>
+  )
+}
+
+// ─── Bottom Navigation (mobile only) ─────────────────────────────────────────
+
+const BOTTOM_NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => ReactNode }[] = [
+  { section: 'communities',   label: 'Inicio',    Icon: IcoCommunities },
+  { section: 'explore',       label: 'Explorar',  Icon: IcoExplore },
+  { section: 'presence',      label: 'Presencia', Icon: IcoPresence },
+  { section: 'notifications', label: 'Avisos',    Icon: IcoBell },
+  { section: 'profile',       label: 'Perfil',    Icon: IcoProfile },
+]
+
+function BottomNav({
+  activeSection,
+  onSectionChange,
+  unreadCount,
+}: {
+  activeSection: Section
+  onSectionChange: (s: Section) => void
+  unreadCount: number
 }) {
   return (
-    <aside className="sidebar">
-      <nav className="sidebar-nav">
-        {NAV_ITEMS.map(({ section, label, Icon }) => (
-          <button
-            key={section}
-            className={`sidebar-item${activeSection === section ? ' sidebar-item--active' : ''}`}
-            onClick={() => onSectionChange(section)}
-            title={label}
-          >
-            <span className="sidebar-icon-wrap">
-              <Icon />
-              {section === 'notifications' && unreadCount > 0 && (
-                <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
-            </span>
-            <span className="sidebar-label">{label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="sidebar-bottom">
-        <div className="sidebar-user">
-          <span className="sidebar-user-dot" />
-          <span className="sidebar-user-name">{username}</span>
-        </div>
+    <nav className="bottom-nav" aria-label="Navegación inferior">
+      {BOTTOM_NAV_ITEMS.map(({ section, label, Icon }) => (
         <button
-          className="sidebar-item sidebar-item--logout"
-          onClick={onLogout}
-          title="Salir"
+          key={section}
+          type="button"
+          className={`bottom-nav-item${activeSection === section ? ' bottom-nav-item--active' : ''}`}
+          onClick={() => onSectionChange(section)}
+          aria-current={activeSection === section ? 'page' : undefined}
+          aria-label={label}
         >
-          <IcoLogout />
-          <span className="sidebar-label">Salir</span>
+          <span className="sidebar-icon-wrap">
+            <Icon size={20} />
+            {section === 'notifications' && unreadCount > 0 && (
+              <span className="notif-badge" aria-label={`${unreadCount} sin leer`}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </span>
+          <span>{label}</span>
         </button>
-      </div>
-    </aside>
+      ))}
+    </nav>
   )
 }
 
@@ -2010,6 +2098,11 @@ function AuthPanel() {
         </header>
 
         <div className="auth-grid">
+          <div className="auth-brand-col-mobile">
+            <h1>CONTENLINE</h1>
+            <p>INTELLECTUAL SOCIAL HUB</p>
+          </div>
+
           <div className="auth-brand-col">
             <p className="auth-version">v1.0 — Beta abierta</p>
             <h1 className="auth-title">CONTENLINE</h1>
@@ -2103,6 +2196,7 @@ function App({ session }: { session: Session }) {
   const supabase = getSupabaseBrowserClient()
 
   const [activeSection, setActiveSection] = useState<Section>('communities')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const [users, setUsers] = useState<AppUser[]>([])
   const [communities, setCommunities] = useState<Community[]>([])
@@ -2518,12 +2612,15 @@ function App({ session }: { session: Session }) {
       })
   }, [supabase, session.user.id])
 
-  // ── Ctrl+K focuses search bar ────────────────────────────────────────────────
+  // ── Ctrl+K focuses search bar; Esc closes mobile drawer ─────────────────────
 
   const handleGlobalKey = useCallback((e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault()
       searchRef.current?.focus()
+    }
+    if (e.key === 'Escape') {
+      setMobileMenuOpen(false)
     }
   }, [])
 
@@ -2531,6 +2628,16 @@ function App({ session }: { session: Session }) {
     document.addEventListener('keydown', handleGlobalKey)
     return () => document.removeEventListener('keydown', handleGlobalKey)
   }, [handleGlobalKey])
+
+  // ── Lock body scroll when mobile drawer is open ─────────────────────────────
+
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const original = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = original }
+    }
+  }, [mobileMenuOpen])
 
   // ── Load live sessions (+ real-time) ──────────────────────────────────────
 
@@ -3216,23 +3323,30 @@ function App({ session }: { session: Session }) {
 
   // ───────────────────────────────────────────────────────────────────────────
 
+  const unreadCount = notifications.filter(n => !n.read).length
+
   return (
     <div className="app-shell">
-      <Sidebar
-        activeSection={activeSection}
-        onSectionChange={handleSectionChange}
-        onLogout={handleLogout}
-        username={currentUser?.username ?? session.user.email ?? ''}
-        unreadCount={notifications.filter(n => !n.read).length}
-      />
+      <a href="#main-content" className="skip-to-content">Saltar al contenido</a>
 
       <TopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         searchRef={searchRef}
+        onMenuToggle={() => setMobileMenuOpen(v => !v)}
       />
 
-      <div className="content-area">
+      <Sidebar
+        activeSection={activeSection}
+        onSectionChange={handleSectionChange}
+        onLogout={handleLogout}
+        username={currentUser?.username ?? session.user.email ?? ''}
+        unreadCount={unreadCount}
+        open={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+
+      <main id="main-content" className="content-area" role="main">
         <div className="content-inner">
           {activeSection === 'communities' && (
             <CommunitiesSection
@@ -3377,7 +3491,13 @@ function App({ session }: { session: Session }) {
             <SettingsSection session={session} onLogout={handleLogout} />
           )}
         </div>
-      </div>
+      </main>
+
+      <BottomNav
+        activeSection={activeSection}
+        onSectionChange={handleSectionChange}
+        unreadCount={unreadCount}
+      />
     </div>
   )
 }
