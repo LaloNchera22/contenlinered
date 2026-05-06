@@ -313,12 +313,21 @@ function TopBar({
   onSearchChange,
   searchRef,
   onMenuToggle,
+  onLogout,
+  onNotificationsClick,
+  unreadCount,
+  username,
 }: {
   searchQuery: string
   onSearchChange: (v: string) => void
   searchRef: React.RefObject<HTMLInputElement | null>
   onMenuToggle: () => void
+  onLogout: () => void
+  onNotificationsClick: () => void
+  unreadCount: number
+  username: string
 }) {
+  const initial = (username || '?').charAt(0).toUpperCase()
   return (
     <header className="topbar" role="banner">
       <button
@@ -329,7 +338,7 @@ function TopBar({
       >
         <IcoMenu size={22} />
       </button>
-      <span className="topbar-brand">CONTENLINE</span>
+      <span className="topbar-brand">Contenline</span>
       <div className="topbar-search-wrap">
         <label className="topbar-search" onClick={() => searchRef.current?.focus()}>
           <span className="topbar-search-icon" aria-hidden><IcoSearch size={15} /></span>
@@ -338,13 +347,40 @@ function TopBar({
             ref={searchRef}
             className="topbar-input"
             type="text"
-            placeholder="Buscar…"
+            placeholder="Buscar"
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
             aria-label="Buscar comunidades, publicaciones y personas"
           />
           <span className="topbar-kbd" aria-hidden>Ctrl K</span>
         </label>
+      </div>
+      <div className="topbar-actions">
+        <button
+          type="button"
+          className="topbar-icon-btn"
+          onClick={onNotificationsClick}
+          aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
+          title="Notificaciones"
+        >
+          <span className="sidebar-icon-wrap">
+            <IcoBell size={18} />
+            {unreadCount > 0 && (
+              <span className="notif-badge" aria-hidden>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="topbar-link"
+          onClick={onLogout}
+          title="Cerrar sesión"
+        >
+          Salir
+        </button>
+        <span className="topbar-avatar" aria-hidden>{initial}</span>
       </div>
     </header>
   )
@@ -2037,7 +2073,7 @@ function NotConfigured() {
     <div className="auth-screen">
       <div className="auth-inner">
         <div className="auth-logo">
-          <h1>CONTENLINE</h1>
+          <h1>Contenline.</h1>
         </div>
         <div className="setup-box">
           <p><strong>La aplicación no está configurada.</strong></p>
@@ -2102,7 +2138,7 @@ function AuthPanel() {
         <header className="auth-header">
           <div className="auth-header-brand">
             <span className="auth-dot" />
-            <span className="auth-header-name">CONTENLINE</span>
+            <span className="auth-header-name">Contenline</span>
           </div>
           <nav className="auth-header-nav">
             <a href="#">Sobre</a>
@@ -2113,14 +2149,16 @@ function AuthPanel() {
 
         <div className="auth-grid">
           <div className="auth-brand-col-mobile">
-            <h1>CONTENLINE</h1>
-            <p>INTELLECTUAL SOCIAL HUB</p>
+            <h1>Contenline.</h1>
+            <p>Hub social intelectual</p>
           </div>
 
           <div className="auth-brand-col">
             <p className="auth-version">v1.0 — Beta abierta</p>
-            <h1 className="auth-title">CONTENLINE</h1>
-            <p className="auth-tagline">INTELLECTUAL SOCIAL HUB</p>
+            <h1 className="auth-title">Contenline.</h1>
+            <p className="auth-tagline">
+              Una red social para conectar ideas, compartir conocimiento y construir comunidades en torno a lo que importa.
+            </p>
           </div>
 
           <div className="auth-form-col">
@@ -2195,7 +2233,7 @@ function AuthPanel() {
         </div>
 
         <footer className="auth-footer">
-          <span>© 2026 CONTENLINE</span>
+          <span>© 2026 Contenline</span>
           <span className="auth-footer-tagline">Hecho con calma.</span>
         </footer>
 
@@ -3403,6 +3441,10 @@ function App({ session }: { session: Session }) {
         onSearchChange={setSearchQuery}
         searchRef={searchRef}
         onMenuToggle={() => setMobileMenuOpen(v => !v)}
+        onLogout={handleLogout}
+        onNotificationsClick={() => handleSectionChange('notifications')}
+        unreadCount={unreadCount}
+        username={currentUser?.username ?? session.user.email ?? '?'}
       />
 
       <Sidebar
@@ -3587,7 +3629,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <div className="auth-screen">
           <div className="auth-inner">
-            <div className="auth-logo"><h1>CONTENLINE</h1></div>
+            <div className="auth-logo"><h1>Contenline.</h1></div>
             <div className="setup-box">
               <p><strong>Error al iniciar la aplicación</strong></p>
               <p>{this.state.error.message}</p>
