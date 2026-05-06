@@ -311,7 +311,7 @@ function TopBar({
 }) {
   return (
     <div className="topbar">
-      <span className="topbar-brand">Red Social</span>
+      <span className="topbar-brand">CONTENLINE</span>
       <div className="topbar-search-wrap">
         <div className="topbar-search" onClick={() => searchRef.current?.focus()}>
           <span className="topbar-search-icon"><IcoSearch size={15} /></span>
@@ -319,7 +319,7 @@ function TopBar({
             ref={searchRef}
             className="topbar-input"
             type="text"
-            placeholder="Buscar en Red Social…"
+            placeholder="Buscar…"
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
           />
@@ -1935,7 +1935,7 @@ function NotConfigured() {
     <div className="auth-screen">
       <div className="auth-inner">
         <div className="auth-logo">
-          <h1>Red Social</h1>
+          <h1>CONTENLINE</h1>
         </div>
         <div className="setup-box">
           <p><strong>La aplicación no está configurada.</strong></p>
@@ -1994,65 +1994,104 @@ function AuthPanel() {
   }
 
   return (
-    <div className="auth-screen">
-      <div className="auth-inner">
-        <div className="auth-logo">
-          <h1>Red Social</h1>
-          <p>Conecta, comparte, construye.</p>
+    <div className="auth-page">
+      <div className="auth-container">
+
+        <header className="auth-header">
+          <div className="auth-header-brand">
+            <span className="auth-dot" />
+            <span className="auth-header-name">CONTENLINE</span>
+          </div>
+          <nav className="auth-header-nav">
+            <a href="#">Sobre</a>
+            <a href="#">Privacidad</a>
+            <a href="#">Ayuda</a>
+          </nav>
+        </header>
+
+        <div className="auth-grid">
+          <div className="auth-brand-col">
+            <p className="auth-version">v1.0 — Beta abierta</p>
+            <h1 className="auth-title">CONTENLINE</h1>
+            <p className="auth-tagline">INTELLECTUAL SOCIAL HUB</p>
+          </div>
+
+          <div className="auth-form-col">
+            <div className="auth-form-wrap">
+              <div className="auth-tab-nav">
+                <button
+                  type="button"
+                  className={`auth-tab-btn${mode === 'login' ? ' auth-tab-btn--active' : ''}`}
+                  onClick={() => { setMode('login'); setError('') }}
+                >
+                  Entrar
+                </button>
+                <span className="auth-tab-sep">·</span>
+                <button
+                  type="button"
+                  className={`auth-tab-btn${mode === 'signup' ? ' auth-tab-btn--active' : ''}`}
+                  onClick={() => { setMode('signup'); setError('') }}
+                >
+                  Registrarse
+                </button>
+              </div>
+
+              <form className="auth-form-inner" onSubmit={handleSubmit}>
+                {mode === 'signup' && (
+                  <label className="auth-field">
+                    <span className="auth-field-label">Usuario</span>
+                    <input
+                      id="username"
+                      type="text"
+                      className="auth-field-input"
+                      placeholder="@tuusuario"
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      required
+                    />
+                  </label>
+                )}
+                <label className="auth-field">
+                  <span className="auth-field-label">Email</span>
+                  <input
+                    id="email"
+                    type="email"
+                    className="auth-field-input"
+                    placeholder="correo@ejemplo.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                  />
+                </label>
+                <label className="auth-field">
+                  <span className="auth-field-label">Contraseña</span>
+                  <input
+                    id="password"
+                    type="password"
+                    className="auth-field-input"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </label>
+                {error && <p className="error-text">{error}</p>}
+                <button type="submit" className="auth-submit-btn" disabled={loading}>
+                  {loading ? 'Cargando…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}
+                  {!loading && <span aria-hidden>→</span>}
+                </button>
+                <p className="auth-terms">Al continuar aceptas nuestros términos.</p>
+              </form>
+            </div>
+          </div>
         </div>
 
-        <nav className="auth-nav">
-          <button className="btn-link" onClick={() => { setMode('login'); setError('') }}>
-            {mode === 'login' ? <strong>Entrar</strong> : 'Entrar'}
-          </button>
-          {' · '}
-          <button className="btn-link" onClick={() => { setMode('signup'); setError('') }}>
-            {mode === 'signup' ? <strong>Registrarse</strong> : 'Registrarse'}
-          </button>
-        </nav>
+        <footer className="auth-footer">
+          <span>© 2026 CONTENLINE</span>
+          <span className="auth-footer-tagline">Hecho con calma.</span>
+        </footer>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          {mode === 'signup' && (
-            <p>
-              <label htmlFor="username">Usuario</label>
-              <input
-                id="username"
-                type="text"
-                placeholder="@tuusuario"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                required
-              />
-            </p>
-          )}
-          <p>
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="correo@ejemplo.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </p>
-          <p>
-            <label htmlFor="password">Contraseña</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              minLength={6}
-            />
-          </p>
-          {error && <p className="error-text">{error}</p>}
-          <button type="submit" disabled={loading}>
-            {loading ? 'Cargando…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}
-          </button>
-        </form>
       </div>
     </div>
   )
@@ -3358,7 +3397,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <div className="auth-screen">
           <div className="auth-inner">
-            <div className="auth-logo"><h1>Red Social</h1></div>
+            <div className="auth-logo"><h1>CONTENLINE</h1></div>
             <div className="setup-box">
               <p><strong>Error al iniciar la aplicación</strong></p>
               <p>{this.state.error.message}</p>

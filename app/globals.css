@@ -111,6 +111,8 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 .btn-link:hover { color: #666 !important; background: none !important; }
 
 /* ─── Auth Screen ─────────────────────────────────────────────────────────────── */
+
+/* Fallback (loading / error) */
 .auth-screen {
   min-height: 100vh;
   display: flex;
@@ -120,30 +122,249 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   background: #fff;
 }
 
-.auth-inner {
-  width: 100%;
-  max-width: 380px;
-}
+.auth-inner { width: 100%; max-width: 380px; }
+.auth-inner input { max-width: none; }
 
-.auth-logo {
-  margin-bottom: 2rem;
-}
+.auth-logo { margin-bottom: 2rem; }
 
 .auth-logo h1 {
-  font-size: 1.3rem;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 1.4rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.04em;
   color: #0d0d0d;
 }
 
-.auth-logo p {
-  font-size: 0.85rem;
-  color: #999;
+/* ─── Auth full-page layout ───────────────────────────────────────────────────── */
+.auth-page {
+  min-height: 100vh;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-container {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 2.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.auth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem 0 0;
+}
+
+.auth-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0d0d0d;
+  flex-shrink: 0;
+}
+
+.auth-header-name {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #0d0d0d;
+}
+
+.auth-header-nav {
+  display: flex;
+  gap: 1.75rem;
+  font-size: 0.82rem;
+}
+
+.auth-header-nav a {
+  color: #777;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.auth-header-nav a:hover { color: #0d0d0d; }
+
+/* Grid: brand | form */
+.auth-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6rem;
+  align-items: center;
+  padding: 4rem 0;
+}
+
+@media (max-width: 680px) {
+  .auth-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+  .auth-brand-col { display: none; }
+}
+
+/* Brand column */
+.auth-version {
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #777;
+  margin-bottom: 1.5rem;
+}
+
+.auth-title {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #0d0d0d;
+  line-height: 1.05;
+  margin-bottom: 0.75rem;
+}
+
+.auth-tagline {
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #aaa;
   margin-bottom: 0;
 }
 
+/* Form column */
+.auth-form-wrap { max-width: 360px; }
+
+/* Tab nav */
+.auth-tab-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  margin-bottom: 2rem;
+}
+
+.auth-tab-sep { padding: 0 0.5rem; color: #aaa; }
+
+.auth-tab-btn {
+  position: relative;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0.25rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: normal;
+  cursor: pointer;
+  color: #777;
+  transition: color 0.15s;
+}
+
+.auth-tab-btn--active { color: #0d0d0d; font-weight: 500; }
+
+.auth-tab-btn::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 1px;
+  background: #0d0d0d;
+  width: 0;
+  transition: width 0.25s;
+}
+
+.auth-tab-btn--active::after { width: 100%; }
+.auth-tab-btn:hover { color: #0d0d0d; background: none; border: none; }
+
+/* Form fields — underline only */
+.auth-form-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.auth-field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.auth-field-label {
+  font-size: 0.69rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #777;
+  font-weight: 700;
+}
+
+.auth-field-input {
+  border: none !important;
+  border-bottom: 1px solid #e8e8e8 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 0 0.5rem !important;
+  font-size: 0.9rem;
+  color: #0d0d0d;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s;
+  width: 100%;
+  max-width: none !important;
+  display: block;
+}
+
+.auth-field-input:focus { border-bottom-color: #0d0d0d !important; }
+.auth-field-input::placeholder { color: #ccc !important; }
+
+/* Submit button */
+.auth-submit-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 2.75rem;
+  background: #0d0d0d !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  cursor: pointer;
+  transition: opacity 0.15s !important;
+  margin-top: 0.5rem;
+}
+
+.auth-submit-btn:hover:not(:disabled) { opacity: 0.88; background: #0d0d0d !important; }
+.auth-submit-btn:disabled { opacity: 0.35 !important; cursor: not-allowed; }
+
+/* Terms */
+.auth-terms {
+  font-size: 0.75rem !important;
+  color: #aaa !important;
+  text-align: center;
+  margin: 0 !important;
+}
+
+/* Footer */
+.auth-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #ebebeb;
+  padding: 1.5rem 0;
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
 .auth-nav {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
   font-size: 0.88rem;
   display: flex;
   gap: 0.4rem;
@@ -151,7 +372,6 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 .auth-form p { margin-bottom: 1rem; }
-.auth-inner input { max-width: none; }
 
 /* ─── App Shell ──────────────────────────────────────────────────────────────── */
 .app-shell {
@@ -300,13 +520,13 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 
 .topbar-brand {
-  font-size: 0.88rem;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 1rem;
   font-weight: 700;
   color: #ffffff;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   flex-shrink: 0;
-  opacity: 0.9;
 }
 
 .topbar-search-wrap {
