@@ -80,7 +80,33 @@ type Comment = {
   username: string
 }
 
-type Section = 'communities' | 'friends' | 'messages' | 'explore' | 'presence' | 'profile' | 'settings'
+type Friendship = {
+  id: string
+  requester_id: string
+  addressee_id: string
+  status: 'pending' | 'accepted' | 'rejected'
+  created_at: string
+}
+
+type Notification = {
+  id: string
+  user_id: string
+  type: 'friend_request' | 'friend_accepted' | 'mention'
+  from_user_id: string | null
+  entity_id: string | null
+  content: string
+  read: boolean
+  created_at: string
+  from_username?: string
+}
+
+type UserLink = {
+  user_id: string
+  link_type: 'github' | 'arxiv' | 'orcid' | 'linkedin' | 'twitter' | 'website'
+  url: string
+}
+
+type Section = 'communities' | 'friends' | 'messages' | 'explore' | 'presence' | 'profile' | 'settings' | 'notifications'
 
 // ─── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -229,6 +255,49 @@ const IcoUsers = ({ size = 14 }: IcoProps) => (
   </Ico>
 )
 
+const IcoBell = ({ size = 20 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 01-3.46 0" />
+  </Ico>
+)
+
+const IcoCode = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <polyline points="16 18 22 12 16 6" />
+    <polyline points="8 6 2 12 8 18" />
+  </Ico>
+)
+
+const IcoTag = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+    <line x1="7" y1="7" x2="7.01" y2="7" />
+  </Ico>
+)
+
+const IcoLink = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+  </Ico>
+)
+
+const IcoCheck = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <polyline points="20 6 9 17 4 12" />
+  </Ico>
+)
+
+const IcoUserPlus = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="8.5" cy="7" r="4" />
+    <line x1="20" y1="8" x2="20" y2="14" />
+    <line x1="23" y1="11" x2="17" y2="11" />
+  </Ico>
+)
+
 // ─── TopBar ──────────────────────────────────────────────────────────────────────
 
 function TopBar({
@@ -264,13 +333,14 @@ function TopBar({
 // ─── Sidebar ────────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => ReactNode }[] = [
-  { section: 'communities', label: 'Comunidades', Icon: IcoCommunities },
-  { section: 'friends',     label: 'Amigos',      Icon: IcoFriends },
-  { section: 'messages',    label: 'Mensajes',    Icon: IcoMessages },
-  { section: 'explore',     label: 'Explorar',    Icon: IcoExplore },
-  { section: 'presence',    label: 'Presencia',   Icon: IcoPresence },
-  { section: 'profile',     label: 'Perfil',      Icon: IcoProfile },
-  { section: 'settings',    label: 'Ajustes',     Icon: IcoSettings },
+  { section: 'communities',   label: 'Comunidades',    Icon: IcoCommunities },
+  { section: 'friends',       label: 'Amigos',         Icon: IcoFriends },
+  { section: 'messages',      label: 'Mensajes',       Icon: IcoMessages },
+  { section: 'explore',       label: 'Explorar',       Icon: IcoExplore },
+  { section: 'presence',      label: 'Presencia',      Icon: IcoPresence },
+  { section: 'notifications', label: 'Notificaciones', Icon: IcoBell },
+  { section: 'profile',       label: 'Perfil',         Icon: IcoProfile },
+  { section: 'settings',      label: 'Ajustes',        Icon: IcoSettings },
 ]
 
 function Sidebar({
@@ -278,11 +348,13 @@ function Sidebar({
   onSectionChange,
   onLogout,
   username,
+  unreadCount,
 }: {
   activeSection: Section
   onSectionChange: (s: Section) => void
   onLogout: () => void
   username: string
+  unreadCount: number
 }) {
   return (
     <aside className="sidebar">
@@ -294,7 +366,12 @@ function Sidebar({
             onClick={() => onSectionChange(section)}
             title={label}
           >
-            <Icon />
+            <span className="sidebar-icon-wrap">
+              <Icon />
+              {section === 'notifications' && unreadCount > 0 && (
+                <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              )}
+            </span>
             <span className="sidebar-label">{label}</span>
           </button>
         ))}
@@ -319,6 +396,80 @@ function Sidebar({
 }
 
 // ─── Content Sections ───────────────────────────────────────────────────────────
+
+// ─── Content renderer: @mentions, ```code```, and URL link previews ─────────────
+
+const URL_REGEX = /https?:\/\/[^\s<>"]+/g
+const MENTION_REGEX = /@([\w-]+)/g
+
+function LinkChip({ url }: { url: string }) {
+  let label = url.replace(/^https?:\/\//, '')
+  let chipClass = 'link-chip'
+
+  if (/github\.com/.test(url)) {
+    const m = url.match(/github\.com\/([^/]+\/[^/\s?#]+)/)
+    label = m ? `GitHub: ${m[1]}` : 'GitHub'
+    chipClass += ' link-chip--github'
+  } else if (/arxiv\.org/.test(url)) {
+    const m = url.match(/arxiv\.org\/abs\/([^\s?#]+)/)
+    label = m ? `arXiv: ${m[1]}` : 'arXiv'
+    chipClass += ' link-chip--arxiv'
+  } else if (label.length > 50) {
+    label = label.slice(0, 47) + '…'
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className={chipClass}>
+      <IcoLink size={12} />
+      {label}
+    </a>
+  )
+}
+
+function renderContent(text: string, allUsers: AppUser[]): ReactNode {
+  if (!text) return null
+
+  // Split on ``` code blocks first
+  const parts = text.split(/(```[\s\S]*?```)/g)
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('```') && part.endsWith('```')) {
+          const code = part.slice(3, -3).replace(/^\n/, '')
+          return <pre key={i} className="msg-code-block"><code>{code}</code></pre>
+        }
+
+        // For non-code parts: split on URLs then process mentions
+        const urlSplit = part.split(URL_REGEX)
+        const urls = part.match(URL_REGEX) ?? []
+
+        const nodes: ReactNode[] = []
+        urlSplit.forEach((segment, j) => {
+          // Process @mentions within non-URL text
+          const mentionParts = segment.split(MENTION_REGEX)
+          mentionParts.forEach((mp, k) => {
+            if (k % 2 === 1) {
+              // This is a capture group (username)
+              const mentioned = allUsers.find(u => u.username.toLowerCase() === mp.toLowerCase())
+              nodes.push(
+                <span key={`m-${i}-${j}-${k}`} className={`mention${mentioned ? ' mention--valid' : ''}`}>
+                  @{mp}
+                </span>
+              )
+            } else if (mp) {
+              nodes.push(<span key={`t-${i}-${j}-${k}`}>{mp}</span>)
+            }
+          })
+          if (urls[j]) {
+            nodes.push(<LinkChip key={`u-${i}-${j}`} url={urls[j]} />)
+          }
+        })
+        return <span key={i}>{nodes}</span>
+      })}
+    </>
+  )
+}
 
 function MessageAttachment({ url, type }: { url: string; type: 'pdf' | 'audio' }) {
   if (type === 'pdf') {
@@ -366,6 +517,7 @@ function CommunitiesSection({
   setMessageTitle,
   sendMessage,
   messagesEndRef,
+  allUsers,
   attachedFile,
   attachmentType,
   isRecording,
@@ -417,6 +569,7 @@ function CommunitiesSection({
   onStartRecord: () => void
   onStopRecord: () => void
   onClearAttach: () => void
+  allUsers: AppUser[]
   comments: Record<string, Comment[]>
   expandedComments: Set<string>
   commentInputs: Record<string, string>
@@ -573,7 +726,7 @@ function CommunitiesSection({
                 <div className="msg-content-row">
                   <div className="msg-body">
                     <strong>{m.username}</strong>
-                    {m.content && <span>: {m.content}</span>}
+                    {m.content && <span className="msg-text">: {renderContent(m.content, allUsers)}</span>}
                     {m.attachment_url && m.attachment_type && (
                       <div className="msg-attachment-wrap">
                         <MessageAttachment url={m.attachment_url} type={m.attachment_type} />
@@ -613,7 +766,7 @@ function CommunitiesSection({
                         {(comments[m.id] ?? []).map(c => (
                           <li key={c.id} className="comment-item">
                             <strong className="comment-author">{c.username}</strong>
-                            <span className="comment-text">: {c.content}</span>
+                            <span className="comment-text">: {renderContent(c.content, allUsers)}</span>
                           </li>
                         ))}
                       </ul>
@@ -716,6 +869,18 @@ function CommunitiesSection({
                 )}
 
                 <button
+                  type="button"
+                  className="attach-btn"
+                  title="Insertar bloque de código"
+                  onClick={() => {
+                    const before = newMessage
+                    setNewMessage(before + (before && !before.endsWith('\n') ? '\n' : '') + '```\n\n```')
+                  }}
+                >
+                  <IcoCode size={15} />
+                </button>
+
+                <button
                   type="submit"
                   disabled={isUploading || isRecording || (!newMessage.trim() && !attachedFile && !messageTitle.trim())}
                 >
@@ -736,30 +901,213 @@ function CommunitiesSection({
   )
 }
 
-function FriendsSection({ users, currentUserId }: { users: AppUser[]; currentUserId: string }) {
+function FriendsSection({
+  users,
+  currentUserId,
+  friendships,
+  onSendRequest,
+  onAccept,
+  onReject,
+  onRemove,
+  userSkillsMap,
+}: {
+  users: AppUser[]
+  currentUserId: string
+  friendships: Friendship[]
+  onSendRequest: (userId: string) => void
+  onAccept: (friendshipId: string) => void
+  onReject: (friendshipId: string) => void
+  onRemove: (friendshipId: string) => void
+  userSkillsMap: Record<string, string[]>
+}) {
+  const [tab, setTab] = useState<'friends' | 'pending' | 'discover'>('friends')
+
+  const getFriendship = (userId: string) =>
+    friendships.find(f =>
+      (f.requester_id === currentUserId && f.addressee_id === userId) ||
+      (f.addressee_id === currentUserId && f.requester_id === userId)
+    )
+
+  const friends = friendships
+    .filter(f => f.status === 'accepted')
+    .map(f => {
+      const otherId = f.requester_id === currentUserId ? f.addressee_id : f.requester_id
+      return { friendship: f, user: users.find(u => u.id === otherId) }
+    })
+    .filter(x => x.user)
+
+  const incoming = friendships.filter(
+    f => f.status === 'pending' && f.addressee_id === currentUserId
+  )
+  const outgoing = friendships.filter(
+    f => f.status === 'pending' && f.requester_id === currentUserId
+  )
+
+  const discover = users.filter(u => u.id !== currentUserId && !getFriendship(u.id))
+
   return (
     <div>
       <div className="section-title">Amigos</div>
-      <h2>{users.length} {users.length === 1 ? 'persona' : 'personas'}</h2>
-      {users.map(u => (
-        <div key={u.id} className="friend-item">
-          <div className="friend-avatar">
-            {u.username.charAt(0).toUpperCase()}
-          </div>
-          <div className="friend-info">
-            <div className="friend-name">
-              {u.username}
-              {u.id === currentUserId && <span className="friend-you">(tú)</span>}
+
+      <div className="comm-filter-tabs" style={{ marginBottom: '1.25rem' }}>
+        <button
+          className={`comm-tab${tab === 'friends' ? ' comm-tab--active' : ''}`}
+          onClick={() => setTab('friends')}
+        >
+          Amigos ({friends.length})
+        </button>
+        <button
+          className={`comm-tab${tab === 'pending' ? ' comm-tab--active' : ''}`}
+          onClick={() => setTab('pending')}
+        >
+          Solicitudes {incoming.length > 0 && <span className="notif-inline">{incoming.length}</span>}
+        </button>
+        <button
+          className={`comm-tab${tab === 'discover' ? ' comm-tab--active' : ''}`}
+          onClick={() => setTab('discover')}
+        >
+          Descubrir
+        </button>
+      </div>
+
+      {tab === 'friends' && (
+        <>
+          {friends.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: '#bbb' }}>
+              Aún no tienes amigos. Ve a &ldquo;Descubrir&rdquo; para enviar solicitudes.
+            </p>
+          ) : (
+            friends.map(({ friendship, user }) => user && (
+              <div key={user.id} className="friend-item">
+                <div className="friend-avatar">{user.username.charAt(0).toUpperCase()}</div>
+                <div className="friend-info">
+                  <div className="friend-name">@{user.username}</div>
+                  {user.public_status
+                    ? <div className="friend-status">{user.public_status}</div>
+                    : <div className="friend-status" style={{ color: '#ccc' }}>Sin estado</div>
+                  }
+                  {(userSkillsMap[user.id] ?? []).length > 0 && (
+                    <div className="skill-tags-row">
+                      {userSkillsMap[user.id].map(s => (
+                        <span key={s} className="skill-tag">{s}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  className="btn-ghost-sm"
+                  onClick={() => onRemove(friendship.id)}
+                  title="Eliminar amistad"
+                >
+                  Eliminar
+                </button>
+              </div>
+            ))
+          )}
+        </>
+      )}
+
+      {tab === 'pending' && (
+        <>
+          {incoming.length === 0 && outgoing.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: '#bbb' }}>No hay solicitudes pendientes.</p>
+          ) : null}
+
+          {incoming.length > 0 && (
+            <>
+              <h2>Recibidas ({incoming.length})</h2>
+              {incoming.map(f => {
+                const sender = users.find(u => u.id === f.requester_id)
+                if (!sender) return null
+                return (
+                  <div key={f.id} className="friend-item">
+                    <div className="friend-avatar">{sender.username.charAt(0).toUpperCase()}</div>
+                    <div className="friend-info">
+                      <div className="friend-name">@{sender.username}</div>
+                      {sender.public_status && <div className="friend-status">{sender.public_status}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <button
+                        className="community-join-btn"
+                        style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem' }}
+                        onClick={() => onAccept(f.id)}
+                      >
+                        <IcoCheck size={12} /> Aceptar
+                      </button>
+                      <button
+                        className="btn-ghost-sm"
+                        onClick={() => onReject(f.id)}
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
+
+          {outgoing.length > 0 && (
+            <>
+              <h2 style={{ marginTop: incoming.length > 0 ? '1rem' : 0 }}>Enviadas ({outgoing.length})</h2>
+              {outgoing.map(f => {
+                const receiver = users.find(u => u.id === f.addressee_id)
+                if (!receiver) return null
+                return (
+                  <div key={f.id} className="friend-item">
+                    <div className="friend-avatar">{receiver.username.charAt(0).toUpperCase()}</div>
+                    <div className="friend-info">
+                      <div className="friend-name">@{receiver.username}</div>
+                      <div className="friend-status" style={{ color: '#aaa' }}>Solicitud pendiente…</div>
+                    </div>
+                    <button className="btn-ghost-sm" onClick={() => onReject(f.id)}>Cancelar</button>
+                  </div>
+                )
+              })}
+            </>
+          )}
+        </>
+      )}
+
+      {tab === 'discover' && (
+        <>
+          <h2>{discover.length} {discover.length === 1 ? 'persona' : 'personas'}</h2>
+          {discover.map(u => (
+            <div key={u.id} className="friend-item">
+              <div className="friend-avatar">{u.username.charAt(0).toUpperCase()}</div>
+              <div className="friend-info">
+                <div className="friend-name">@{u.username}</div>
+                {u.public_status
+                  ? <div className="friend-status">{u.public_status}</div>
+                  : <div className="friend-status" style={{ color: '#ccc' }}>Sin estado</div>
+                }
+                {(userSkillsMap[u.id] ?? []).length > 0 && (
+                  <div className="skill-tags-row">
+                    {userSkillsMap[u.id].map(s => (
+                      <span key={s} className="skill-tag">{s}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                className="community-join-btn"
+                style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                onClick={() => onSendRequest(u.id)}
+              >
+                <IcoUserPlus size={12} /> Agregar
+              </button>
             </div>
-            {u.public_status
-              ? <div className="friend-status">{u.public_status}</div>
-              : <div className="friend-status" style={{ color: '#d8d8d8' }}>Sin estado</div>
-            }
-          </div>
-        </div>
-      ))}
+          ))}
+        </>
+      )}
     </div>
   )
+}
+
+const LINK_TYPES: UserLink['link_type'][] = ['github', 'arxiv', 'orcid', 'linkedin', 'twitter', 'website']
+const LINK_LABELS: Record<UserLink['link_type'], string> = {
+  github: 'GitHub', arxiv: 'arXiv', orcid: 'ORCID',
+  linkedin: 'LinkedIn', twitter: 'Twitter/X', website: 'Sitio web',
 }
 
 function ProfileSection({
@@ -769,6 +1117,12 @@ function ProfileSection({
   setStatusInput,
   updateStatus,
   statusError,
+  mySkills,
+  onAddSkill,
+  onRemoveSkill,
+  myLinks,
+  onUpsertLink,
+  onRemoveLink,
 }: {
   currentUser: AppUser | undefined
   email: string
@@ -776,7 +1130,41 @@ function ProfileSection({
   setStatusInput: (v: string) => void
   updateStatus: (e: FormEvent) => void
   statusError: string
+  mySkills: string[]
+  onAddSkill: (s: string) => void
+  onRemoveSkill: (s: string) => void
+  myLinks: UserLink[]
+  onUpsertLink: (lt: UserLink['link_type'], url: string) => void
+  onRemoveLink: (lt: UserLink['link_type']) => void
 }) {
+  const [skillInput, setSkillInput] = useState('')
+  const [editingLink, setEditingLink] = useState<UserLink['link_type'] | null>(null)
+  const [linkInput, setLinkInput] = useState('')
+
+  function handleAddSkill(e: FormEvent) {
+    e.preventDefault()
+    const s = skillInput.trim().toLowerCase()
+    if (!s || mySkills.includes(s) || mySkills.length >= 10) return
+    onAddSkill(s)
+    setSkillInput('')
+  }
+
+  function startEditLink(lt: UserLink['link_type']) {
+    const existing = myLinks.find(l => l.link_type === lt)
+    setLinkInput(existing?.url ?? '')
+    setEditingLink(lt)
+  }
+
+  function handleSaveLink(e: FormEvent) {
+    e.preventDefault()
+    if (!editingLink) return
+    const url = linkInput.trim()
+    if (url) onUpsertLink(editingLink, url)
+    else onRemoveLink(editingLink)
+    setEditingLink(null)
+    setLinkInput('')
+  }
+
   return (
     <div>
       <div className="section-title">Perfil</div>
@@ -790,7 +1178,12 @@ function ProfileSection({
             <div className="profile-username">@{currentUser.username}</div>
             <div className="profile-email">{email}</div>
             {currentUser.public_status && (
-              <div className="profile-status-text">"{currentUser.public_status}"</div>
+              <div className="profile-status-text">&ldquo;{currentUser.public_status}&rdquo;</div>
+            )}
+            {mySkills.length > 0 && (
+              <div className="skill-tags-row" style={{ marginTop: '0.5rem' }}>
+                {mySkills.map(s => <span key={s} className="skill-tag">{s}</span>)}
+              </div>
             )}
           </div>
         </div>
@@ -810,6 +1203,95 @@ function ProfileSection({
         </form>
         {statusError && <p className="error-text">{statusError}</p>}
       </section>
+
+      <section>
+        <h2><IcoTag size={11} /> Especialidades / Skills</h2>
+        <div className="skill-tags-row" style={{ marginBottom: '0.75rem', minHeight: '1.5rem' }}>
+          {mySkills.map(s => (
+            <span key={s} className="skill-tag skill-tag--editable">
+              {s}
+              <button
+                type="button"
+                className="skill-tag-remove"
+                onClick={() => onRemoveSkill(s)}
+                title={`Eliminar ${s}`}
+              >
+                <IcoX size={10} />
+              </button>
+            </span>
+          ))}
+          {mySkills.length === 0 && (
+            <span style={{ fontSize: '0.8rem', color: '#bbb' }}>Sin skills aún.</span>
+          )}
+        </div>
+        {mySkills.length < 10 && (
+          <form className="inline-form" onSubmit={handleAddSkill}>
+            <input
+              type="text"
+              placeholder="Ej: python, machine-learning…"
+              value={skillInput}
+              onChange={e => setSkillInput(e.target.value)}
+              maxLength={50}
+              style={{ maxWidth: '220px' }}
+            />
+            <button type="submit" disabled={!skillInput.trim()}>Añadir</button>
+          </form>
+        )}
+      </section>
+
+      <section>
+        <h2><IcoLink size={11} /> Links de perfil</h2>
+        <div className="links-list">
+          {LINK_TYPES.map(lt => {
+            const existing = myLinks.find(l => l.link_type === lt)
+            return (
+              <div key={lt} className="profile-link-row">
+                <span className="profile-link-type">{LINK_LABELS[lt]}</span>
+                {editingLink === lt ? (
+                  <form className="inline-form" onSubmit={handleSaveLink} style={{ flex: 1, display: 'flex', gap: '0.4rem' }}>
+                    <input
+                      type="text"
+                      placeholder={`URL de ${LINK_LABELS[lt]}`}
+                      value={linkInput}
+                      onChange={e => setLinkInput(e.target.value)}
+                      style={{ flex: 1, maxWidth: 'none' }}
+                      autoFocus
+                    />
+                    <button type="submit" style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem' }}>
+                      Guardar
+                    </button>
+                    <button type="button" className="btn-ghost-sm" onClick={() => setEditingLink(null)}>
+                      Cancelar
+                    </button>
+                  </form>
+                ) : (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {existing ? (
+                      <a href={existing.url} target="_blank" rel="noopener noreferrer" className="profile-link-url">
+                        {existing.url.replace(/^https?:\/\//, '')}
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '0.8rem', color: '#ccc' }}>No configurado</span>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-ghost-sm"
+                      onClick={() => startEditLink(lt)}
+                    >
+                      {existing ? 'Editar' : 'Agregar'}
+                    </button>
+                    {existing && (
+                      <button type="button" className="btn-ghost-sm" onClick={() => onRemoveLink(lt)}>
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
@@ -828,6 +1310,8 @@ function ExploreSection({
   onNavigateToCommunity,
   exploreTab,
   setExploreTab,
+  users,
+  userSkillsMap,
 }: {
   communities: Community[]
   joinedCommunityIds: Set<string>
@@ -840,9 +1324,13 @@ function ExploreSection({
   searchQuery: string
   searchResults: SearchResults | null
   onNavigateToCommunity: (c: Community) => void
-  exploreTab: 'browse' | 'saved'
-  setExploreTab: (t: 'browse' | 'saved') => void
+  exploreTab: 'browse' | 'saved' | 'people'
+  setExploreTab: (t: 'browse' | 'saved' | 'people') => void
+  users: AppUser[]
+  userSkillsMap: Record<string, string[]>
 }) {
+  const [skillFilter, setSkillFilter] = useState('')
+
   const prevTab = useRef(exploreTab)
   useEffect(() => {
     if (exploreTab === 'saved' && prevTab.current !== 'saved') {
@@ -850,6 +1338,14 @@ function ExploreSection({
     }
     prevTab.current = exploreTab
   }, [exploreTab, onLoadSavedMessages])
+
+  const filteredUsers = skillFilter.trim()
+    ? users.filter(u => {
+        if (!currentUser || u.id === currentUser.id) return false
+        const skills = userSkillsMap[u.id] ?? []
+        return skills.some(s => s.toLowerCase().includes(skillFilter.toLowerCase()))
+      })
+    : users.filter(u => currentUser && u.id !== currentUser.id)
 
   if (searchQuery.length >= 2 && searchResults) {
     const hasResults = searchResults.communities.length > 0 || searchResults.posts.length > 0
@@ -931,6 +1427,12 @@ function ExploreSection({
           Comunidades
         </button>
         <button
+          className={`comm-tab${exploreTab === 'people' ? ' comm-tab--active' : ''}`}
+          onClick={() => setExploreTab('people')}
+        >
+          Personas
+        </button>
+        <button
           className={`comm-tab${exploreTab === 'saved' ? ' comm-tab--active' : ''}`}
           onClick={() => setExploreTab('saved')}
         >
@@ -971,6 +1473,48 @@ function ExploreSection({
               )
             })}
           </div>
+        </>
+      )}
+
+      {exploreTab === 'people' && (
+        <>
+          <h2>Buscar por skill</h2>
+          <div style={{ marginBottom: '1rem' }}>
+            <input
+              type="text"
+              placeholder="Ej: python, machine-learning, NLP…"
+              value={skillFilter}
+              onChange={e => setSkillFilter(e.target.value)}
+              style={{ maxWidth: '280px' }}
+            />
+          </div>
+          {filteredUsers.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: '#bbb' }}>
+              {skillFilter ? 'Sin resultados para ese skill.' : 'No hay otros usuarios aún.'}
+            </p>
+          ) : (
+            filteredUsers.map(u => (
+              <div key={u.id} className="friend-item">
+                <div className="friend-avatar">{u.username.charAt(0).toUpperCase()}</div>
+                <div className="friend-info">
+                  <div className="friend-name">@{u.username}</div>
+                  {u.public_status && <div className="friend-status">{u.public_status}</div>}
+                  {(userSkillsMap[u.id] ?? []).length > 0 && (
+                    <div className="skill-tags-row">
+                      {userSkillsMap[u.id].map(s => (
+                        <span
+                          key={s}
+                          className={`skill-tag${skillFilter && s.toLowerCase().includes(skillFilter.toLowerCase()) ? ' skill-tag--match' : ''}`}
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </>
       )}
 
@@ -1281,6 +1825,70 @@ function MessagesSection({
   )
 }
 
+function NotificationsSection({
+  notifications,
+  users,
+  onMarkRead,
+  onMarkAllRead,
+  onNavigate,
+}: {
+  notifications: Notification[]
+  users: AppUser[]
+  onMarkRead: (id: string) => void
+  onMarkAllRead: () => void
+  onNavigate: (n: Notification) => void
+}) {
+  const unread = notifications.filter(n => !n.read).length
+
+  function label(n: Notification): string {
+    const from = users.find(u => u.id === n.from_user_id)?.username ?? 'alguien'
+    if (n.type === 'friend_request') return `@${from} te envió una solicitud de amistad`
+    if (n.type === 'friend_accepted') return `@${from} aceptó tu solicitud de amistad`
+    if (n.type === 'mention') return `@${from} te mencionó: ${n.content}`
+    return n.content
+  }
+
+  return (
+    <div>
+      <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Notificaciones</span>
+        {unread > 0 && (
+          <button
+            onClick={onMarkAllRead}
+            style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', fontWeight: 500 }}
+          >
+            Marcar todas como leídas
+          </button>
+        )}
+      </div>
+
+      {notifications.length === 0 ? (
+        <p style={{ fontSize: '0.85rem', color: '#bbb' }}>Sin notificaciones por ahora.</p>
+      ) : (
+        <ul className="notif-list">
+          {notifications.map(n => (
+            <li
+              key={n.id}
+              className={`notif-item${n.read ? '' : ' notif-item--unread'}`}
+              onClick={() => { if (!n.read) onMarkRead(n.id); onNavigate(n) }}
+            >
+              <div className="notif-dot-wrap">
+                {!n.read && <span className="notif-dot" />}
+              </div>
+              <div className="notif-body">
+                <div className="notif-text">{label(n)}</div>
+                <div className="notif-time">
+                  {new Date(n.created_at).toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function SettingsSection({ session, onLogout }: { session: Session; onLogout: () => void }) {
   return (
     <div>
@@ -1509,8 +2117,15 @@ function App({ session }: { session: Session }) {
   const [communityError, setCommunityError] = useState('')
   const [showAllCommunities, setShowAllCommunities] = useState(false)
   const [messageTitle, setMessageTitle] = useState('')
-  const [exploreTab, setExploreTab] = useState<'browse' | 'saved'>('browse')
+  const [exploreTab, setExploreTab] = useState<'browse' | 'saved' | 'people'>('browse')
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null)
+
+  // ── Social features state ──────────────────────────────────────────────────
+  const [friendships, setFriendships] = useState<Friendship[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [mySkills, setMySkills] = useState<string[]>([])
+  const [myLinks, setMyLinks] = useState<UserLink[]>([])
+  const [userSkillsMap, setUserSkillsMap] = useState<Record<string, string[]>>({})
 
   const currentUser = users.find(u => u.id === session.user.id)
 
@@ -1788,6 +2403,81 @@ function App({ session }: { session: Session }) {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchQuery, supabase])
+
+  // ── Load friendships (+ real-time) ──────────────────────────────────────────
+
+  useEffect(() => {
+    async function fetchFriendships() {
+      const { data } = await (supabase as any)
+        .from('friendships')
+        .select('*')
+        .or(`requester_id.eq.${session.user.id},addressee_id.eq.${session.user.id}`)
+        .order('created_at', { ascending: false })
+      if (data) setFriendships(data as Friendship[])
+    }
+    fetchFriendships()
+    const ch = supabase
+      .channel('friendships-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, fetchFriendships)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [supabase, session.user.id])
+
+  // ── Load notifications (+ real-time) ────────────────────────────────────────
+
+  useEffect(() => {
+    async function fetchNotifications() {
+      const { data } = await (supabase as any)
+        .from('notifications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (data) setNotifications(data as Notification[])
+    }
+    fetchNotifications()
+    const ch = supabase
+      .channel('notifications-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${session.user.id}` }, fetchNotifications)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [supabase, session.user.id])
+
+  // ── Load my skills + all users' skills ──────────────────────────────────────
+
+  useEffect(() => {
+    async function fetchSkills() {
+      const { data } = await (supabase as any).from('user_skills').select('user_id, skill')
+      if (data) {
+        const map: Record<string, string[]> = {}
+        ;(data as { user_id: string; skill: string }[]).forEach(({ user_id, skill }) => {
+          if (!map[user_id]) map[user_id] = []
+          map[user_id].push(skill)
+        })
+        setUserSkillsMap(map)
+        setMySkills(map[session.user.id] ?? [])
+      }
+    }
+    fetchSkills()
+    const ch = supabase
+      .channel('skills-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_skills' }, fetchSkills)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [supabase, session.user.id])
+
+  // ── Load my links ────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    ;(supabase as any)
+      .from('user_links')
+      .select('user_id, link_type, url')
+      .eq('user_id', session.user.id)
+      .then(({ data }: { data: UserLink[] | null }) => {
+        if (data) setMyLinks(data)
+      })
+  }, [supabase, session.user.id])
 
   // ── Ctrl+K focuses search bar ────────────────────────────────────────────────
 
@@ -2087,14 +2777,32 @@ function App({ session }: { session: Session }) {
     setAttachmentType(null)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('messages') as any).insert({
+    const { data: inserted } = await (supabase.from('messages') as any).insert({
       community_id: activeCommunity.id,
       user_id: session.user.id,
       content: content || '',
       title,
       attachment_url,
       attachment_type,
-    })
+    }).select('id').single()
+
+    // Fire mention notifications
+    if (inserted?.id) {
+      const mentionMatches = (content || '').match(MENTION_REGEX) ?? []
+      const mentionedUsernames = new Set(mentionMatches.map((m: string) => m.slice(1).toLowerCase()))
+      for (const uname of mentionedUsernames) {
+        const target = users.find(u => u.username.toLowerCase() === uname && u.id !== session.user.id)
+        if (target) {
+          await (supabase as any).from('notifications').insert({
+            user_id: target.id,
+            type: 'mention',
+            from_user_id: session.user.id,
+            entity_id: inserted.id,
+            content: (content || '').slice(0, 100),
+          })
+        }
+      }
+    }
   }
 
   // ── Comments ────────────────────────────────────────────────────────────────
@@ -2117,11 +2825,29 @@ function App({ session }: { session: Session }) {
     const content = commentInputs[messageId]?.trim()
     if (!content) return
     setCommentInputs(prev => ({ ...prev, [messageId]: '' }))
-    await supabase.from('comments').insert({
+    const { data: inserted } = await (supabase as any).from('comments').insert({
       message_id: messageId,
       user_id: session.user.id,
       content,
-    })
+    }).select('id').single()
+
+    // Fire mention notifications from comments
+    if (inserted?.id) {
+      const mentionMatches = content.match(MENTION_REGEX) ?? []
+      const mentionedUsernames = new Set(mentionMatches.map((m: string) => m.slice(1).toLowerCase()))
+      for (const uname of mentionedUsernames) {
+        const target = users.find(u => u.username.toLowerCase() === uname && u.id !== session.user.id)
+        if (target) {
+          await (supabase as any).from('notifications').insert({
+            user_id: target.id,
+            type: 'mention',
+            from_user_id: session.user.id,
+            entity_id: messageId,
+            content: content.slice(0, 100),
+          })
+        }
+      }
+    }
   }
 
   // ── Send private message ─────────────────────────────────────────────────
@@ -2254,6 +2980,126 @@ function App({ session }: { session: Session }) {
     setActiveSection('communities')
   }
 
+  // ── Friend request handlers ──────────────────────────────────────────────────
+
+  async function sendFriendRequest(addresseeId: string) {
+    const { data, error } = await (supabase as any)
+      .from('friendships')
+      .insert({ requester_id: session.user.id, addressee_id: addresseeId })
+      .select()
+      .single()
+    if (!error && data) {
+      setFriendships(prev => [data as Friendship, ...prev])
+      await (supabase as any).from('notifications').insert({
+        user_id: addresseeId,
+        type: 'friend_request',
+        from_user_id: session.user.id,
+        entity_id: data.id,
+        content: '',
+      })
+    }
+  }
+
+  async function acceptFriendRequest(friendshipId: string) {
+    const { error } = await (supabase as any)
+      .from('friendships')
+      .update({ status: 'accepted' })
+      .eq('id', friendshipId)
+    if (!error) {
+      const fs = friendships.find(f => f.id === friendshipId)
+      setFriendships(prev => prev.map(f => f.id === friendshipId ? { ...f, status: 'accepted' } : f))
+      if (fs) {
+        await (supabase as any).from('notifications').insert({
+          user_id: fs.requester_id,
+          type: 'friend_accepted',
+          from_user_id: session.user.id,
+          entity_id: friendshipId,
+          content: '',
+        })
+      }
+    }
+  }
+
+  async function rejectOrCancelFriendship(friendshipId: string) {
+    await (supabase as any).from('friendships').delete().eq('id', friendshipId)
+    setFriendships(prev => prev.filter(f => f.id !== friendshipId))
+  }
+
+  // ── Skills handlers ──────────────────────────────────────────────────────────
+
+  async function addSkill(skill: string) {
+    const { error } = await (supabase as any)
+      .from('user_skills')
+      .insert({ user_id: session.user.id, skill })
+    if (!error) {
+      setMySkills(prev => [...prev, skill])
+      setUserSkillsMap(prev => ({
+        ...prev,
+        [session.user.id]: [...(prev[session.user.id] ?? []), skill],
+      }))
+    }
+  }
+
+  async function removeSkill(skill: string) {
+    await (supabase as any)
+      .from('user_skills')
+      .delete()
+      .eq('user_id', session.user.id)
+      .eq('skill', skill)
+    setMySkills(prev => prev.filter(s => s !== skill))
+    setUserSkillsMap(prev => ({
+      ...prev,
+      [session.user.id]: (prev[session.user.id] ?? []).filter(s => s !== skill),
+    }))
+  }
+
+  // ── Links handlers ───────────────────────────────────────────────────────────
+
+  async function upsertLink(link_type: UserLink['link_type'], url: string) {
+    const { error } = await (supabase as any)
+      .from('user_links')
+      .upsert({ user_id: session.user.id, link_type, url })
+    if (!error) {
+      setMyLinks(prev => {
+        const filtered = prev.filter(l => l.link_type !== link_type)
+        return [...filtered, { user_id: session.user.id, link_type, url }]
+      })
+    }
+  }
+
+  async function removeLink(link_type: UserLink['link_type']) {
+    await (supabase as any)
+      .from('user_links')
+      .delete()
+      .eq('user_id', session.user.id)
+      .eq('link_type', link_type)
+    setMyLinks(prev => prev.filter(l => l.link_type !== link_type))
+  }
+
+  // ── Notification handlers ────────────────────────────────────────────────────
+
+  async function markNotificationRead(id: string) {
+    await (supabase as any).from('notifications').update({ read: true }).eq('id', id)
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  async function markAllNotificationsRead() {
+    await (supabase as any)
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', session.user.id)
+      .eq('read', false)
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  function handleNotificationNavigate(n: Notification) {
+    if (n.type === 'friend_request' || n.type === 'friend_accepted') {
+      setActiveSection('friends')
+    } else if (n.type === 'mention' && n.entity_id) {
+      setActiveSection('communities')
+    }
+  }
+
   // ── Presence handlers ───────────────────────────────────────────────────────
 
   async function createSession(e: FormEvent) {
@@ -2338,6 +3184,7 @@ function App({ session }: { session: Session }) {
         onSectionChange={handleSectionChange}
         onLogout={handleLogout}
         username={currentUser?.username ?? session.user.email ?? ''}
+        unreadCount={notifications.filter(n => !n.read).length}
       />
 
       <TopBar
@@ -2354,6 +3201,7 @@ function App({ session }: { session: Session }) {
               activeCommunity={activeCommunity}
               setActiveCommunity={setActiveCommunity}
               messages={messages}
+              allUsers={users}
               newMessage={newMessage}
               setNewMessage={setNewMessage}
               messageTitle={messageTitle}
@@ -2395,7 +3243,16 @@ function App({ session }: { session: Session }) {
             />
           )}
           {activeSection === 'friends' && (
-            <FriendsSection users={users} currentUserId={session.user.id} />
+            <FriendsSection
+              users={users}
+              currentUserId={session.user.id}
+              friendships={friendships}
+              onSendRequest={sendFriendRequest}
+              onAccept={acceptFriendRequest}
+              onReject={rejectOrCancelFriendship}
+              onRemove={rejectOrCancelFriendship}
+              userSkillsMap={userSkillsMap}
+            />
           )}
           {activeSection === 'messages' && (
             <MessagesSection
@@ -2418,6 +3275,12 @@ function App({ session }: { session: Session }) {
               setStatusInput={setStatusInput}
               updateStatus={updateStatus}
               statusError={statusError}
+              mySkills={mySkills}
+              onAddSkill={addSkill}
+              onRemoveSkill={removeSkill}
+              myLinks={myLinks}
+              onUpsertLink={upsertLink}
+              onRemoveLink={removeLink}
             />
           )}
           {activeSection === 'explore' && (
@@ -2435,6 +3298,8 @@ function App({ session }: { session: Session }) {
               onNavigateToCommunity={navigateToCommunity}
               exploreTab={exploreTab}
               setExploreTab={setExploreTab}
+              users={users}
+              userSkillsMap={userSkillsMap}
             />
           )}
           {activeSection === 'presence' && (
@@ -2458,6 +3323,15 @@ function App({ session }: { session: Session }) {
               onSessionTyping={handleSessionTyping}
               onDeleteSession={deleteSession}
               sessionEndRef={sessionEndRef}
+            />
+          )}
+          {activeSection === 'notifications' && (
+            <NotificationsSection
+              notifications={notifications}
+              users={users}
+              onMarkRead={markNotificationRead}
+              onMarkAllRead={markAllNotificationsRead}
+              onNavigate={handleNotificationNavigate}
             />
           )}
           {activeSection === 'settings' && (
