@@ -1142,6 +1142,271 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
   text-align: right;
 }
 
+/* ─── Reddit-style Community Mechanics ───────────────────────────────────────── */
+
+/* Filter tabs (Mis comunidades / Todas, Explorar / Guardados) */
+.comm-filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.75rem;
+}
+
+.comm-tab {
+  background: none !important;
+  border: 1px solid #e5e5e5 !important;
+  color: #666 !important;
+  font-size: 0.78rem !important;
+  font-weight: 500 !important;
+  padding: 0.3rem 0.75rem !important;
+  border-radius: 999px !important;
+  cursor: pointer;
+  letter-spacing: normal !important;
+  transition: border-color 0.1s, color 0.1s, background 0.1s !important;
+}
+
+.comm-tab:hover {
+  border-color: #aaa !important;
+  color: #0d0d0d !important;
+  background: #f5f5f5 !important;
+}
+
+.comm-tab--active {
+  border-color: #0d0d0d !important;
+  color: #0d0d0d !important;
+  background: #f0f0f0 !important;
+  font-weight: 700 !important;
+}
+
+/* Create community button (in section header) */
+.comm-create-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  background: none !important;
+  border: 1px solid #d8d8d8 !important;
+  color: #555 !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  padding: 0.25rem 0.65rem !important;
+  border-radius: 5px !important;
+  letter-spacing: normal !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.1s, color 0.1s !important;
+}
+
+.comm-create-btn:hover {
+  border-color: #0d0d0d !important;
+  color: #0d0d0d !important;
+  background: none !important;
+}
+
+/* Create community form container */
+.create-community-form {
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: #fafafa;
+}
+
+.create-community-form input {
+  max-width: none;
+}
+
+/* Community item row (name + join/leave) */
+.community-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.community-item .community-btn {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Member count badge inside community button */
+.community-member-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: #aaa;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+/* Join community button */
+.community-join-btn {
+  background: none !important;
+  border: 1px solid #0d0d0d !important;
+  color: #0d0d0d !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  padding: 0.2rem 0.5rem !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: normal !important;
+  transition: background 0.1s !important;
+}
+
+.community-join-btn:hover {
+  background: #0d0d0d !important;
+  color: #fff !important;
+}
+
+/* Leave community button (joined state) */
+.community-leave-btn {
+  background: none !important;
+  border: 1px solid #d0d0d0 !important;
+  color: #888 !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  padding: 0.2rem 0.5rem !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: normal !important;
+  transition: border-color 0.1s, color 0.1s, background 0.1s !important;
+}
+
+.community-leave-btn:hover {
+  border-color: #e74c3c !important;
+  color: #e74c3c !important;
+  background: #fff5f5 !important;
+}
+
+/* Post title display in message list */
+.post-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0d0d0d;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.15rem;
+  line-height: 1.3;
+}
+
+/* Message actions row (save + comment buttons) */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Save/bookmark button on posts */
+.post-save-btn {
+  display: inline-flex !important;
+  align-items: center;
+  background: none !important;
+  border: 1px solid #e5e5e5 !important;
+  color: #bbb !important;
+  padding: 2px 6px !important;
+  font-size: 0.72rem !important;
+  font-weight: 400 !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  flex-shrink: 0;
+  letter-spacing: normal !important;
+  transition: border-color 0.1s, color 0.1s !important;
+}
+
+.post-save-btn:hover {
+  border-color: #aaa !important;
+  color: #444 !important;
+  background: none !important;
+}
+
+.post-save-btn--saved {
+  border-color: #0d0d0d !important;
+  color: #0d0d0d !important;
+}
+
+/* New post form wrapper */
+.post-form {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+/* Title input in post form */
+.post-title-input {
+  width: 100%;
+  max-width: none !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: 5px !important;
+  padding: 0.45rem 0.75rem !important;
+  background: #fff !important;
+  color: #0d0d0d !important;
+  margin-bottom: 0;
+}
+
+.post-title-input:focus {
+  border-color: #0d0d0d !important;
+  outline: none !important;
+}
+
+/* Explore: community cards list */
+.explore-community-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+/* Explore: individual community card */
+.explore-community-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid #ebebeb;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  transition: border-color 0.15s;
+}
+
+.explore-community-card:hover {
+  border-color: #ccc;
+}
+
+.explore-community-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.explore-community-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #0d0d0d;
+  margin-bottom: 0.15rem;
+}
+
+.explore-community-desc {
+  font-size: 0.8rem;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 0.2rem;
+}
+
+.explore-community-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
 /* ─── Errors & info ──────────────────────────────────────────────────────────── */
 .error-text {
   color: #c0392b;

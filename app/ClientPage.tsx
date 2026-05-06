@@ -15,6 +15,9 @@ type AppUser = {
 type Community = {
   id: string
   name: string
+  description?: string
+  created_by?: string | null
+  tags?: string[]
 }
 
 type Message = {
@@ -22,11 +25,17 @@ type Message = {
   community_id: string
   user_id: string
   content: string
+  title?: string | null
   attachment_url?: string | null
   attachment_type?: 'pdf' | 'audio' | null
   created_at: string
   username: string
   optimistic?: boolean
+}
+
+type SearchResults = {
+  posts: Message[]
+  communities: Community[]
 }
 
 type LiveSession = {
@@ -196,6 +205,30 @@ const IcoComment = ({ size = 14 }: IcoProps) => (
   </Ico>
 )
 
+const IcoBookmark = ({ size = 14, filled = false }: IcoProps & { filled?: boolean }) => (
+  <Ico size={size}>
+    <path
+      d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"
+      fill={filled ? 'currentColor' : 'none'}
+    />
+  </Ico>
+)
+
+const IcoPlus = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M12 5v14M5 12h14" />
+  </Ico>
+)
+
+const IcoUsers = ({ size = 14 }: IcoProps) => (
+  <Ico size={size}>
+    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 00-3-3.87" />
+    <path d="M16 3.13a4 4 0 010 7.75" />
+  </Ico>
+)
+
 // ─── TopBar ──────────────────────────────────────────────────────────────────────
 
 function TopBar({
@@ -329,6 +362,8 @@ function CommunitiesSection({
   messages,
   newMessage,
   setNewMessage,
+  messageTitle,
+  setMessageTitle,
   sendMessage,
   messagesEndRef,
   attachedFile,
@@ -346,6 +381,23 @@ function CommunitiesSection({
   setCommentInput,
   sendComment,
   currentUser,
+  joinedCommunityIds,
+  allCommunityMembers,
+  onJoinCommunity,
+  onLeaveCommunity,
+  savedPostIds,
+  onSavePost,
+  onUnsavePost,
+  showCreateCommunity,
+  setShowCreateCommunity,
+  newCommunityName,
+  setNewCommunityName,
+  newCommunityDesc,
+  setNewCommunityDesc,
+  createCommunity,
+  communityError,
+  showAllCommunities,
+  setShowAllCommunities,
 }: {
   communities: Community[]
   activeCommunity: Community | null
@@ -353,6 +405,8 @@ function CommunitiesSection({
   messages: Message[]
   newMessage: string
   setNewMessage: (v: string) => void
+  messageTitle: string
+  setMessageTitle: (v: string) => void
   sendMessage: (e: FormEvent) => void
   messagesEndRef: React.RefObject<HTMLLIElement | null>
   attachedFile: File | null
@@ -370,36 +424,152 @@ function CommunitiesSection({
   setCommentInput: (messageId: string, value: string) => void
   sendComment: (messageId: string, e: FormEvent) => void
   currentUser: AppUser | undefined
+  joinedCommunityIds: Set<string>
+  allCommunityMembers: { community_id: string; user_id: string }[]
+  onJoinCommunity: (id: string) => void
+  onLeaveCommunity: (id: string) => void
+  savedPostIds: Set<string>
+  onSavePost: (id: string) => void
+  onUnsavePost: (id: string) => void
+  showCreateCommunity: boolean
+  setShowCreateCommunity: (v: boolean) => void
+  newCommunityName: string
+  setNewCommunityName: (v: string) => void
+  newCommunityDesc: string
+  setNewCommunityDesc: (v: string) => void
+  createCommunity: (e: FormEvent) => void
+  communityError: string
+  showAllCommunities: boolean
+  setShowAllCommunities: (v: boolean) => void
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null)
 
+  const displayCommunities = showAllCommunities
+    ? communities
+    : communities.filter(c => joinedCommunityIds.has(c.id))
+
   return (
     <div>
-      <div className="section-title">Comunidades</div>
-
-      <h2>Grupos</h2>
-      <div className="community-list">
-        {communities.length === 0 && (
-          <p style={{ fontSize: '0.85rem', color: '#bbb' }}>Sin comunidades aún.</p>
-        )}
-        {communities.map(c => (
+      <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Comunidades</span>
+        {currentUser && (
           <button
-            key={c.id}
-            className={`community-btn${activeCommunity?.id === c.id ? ' community-btn--active' : ''}`}
-            onClick={() => setActiveCommunity(c)}
+            className="comm-create-btn"
+            onClick={() => setShowCreateCommunity(!showCreateCommunity)}
+            title="Crear comunidad"
           >
-            <IcoCommunities size={15} />
-            {c.name}
+            <IcoPlus size={12} />
+            {showCreateCommunity ? 'Cancelar' : 'Nueva'}
           </button>
-        ))}
+        )}
+      </div>
+
+      {showCreateCommunity && (
+        <div className="create-community-form">
+          <form onSubmit={createCommunity}>
+            <input
+              type="text"
+              placeholder="Nombre de la comunidad"
+              value={newCommunityName}
+              onChange={e => setNewCommunityName(e.target.value)}
+              maxLength={100}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Descripción (opcional)"
+              value={newCommunityDesc}
+              onChange={e => setNewCommunityDesc(e.target.value)}
+              maxLength={500}
+              style={{ marginTop: '0.4rem' }}
+            />
+            <div style={{ marginTop: '0.5rem' }}>
+              <button type="submit" disabled={!newCommunityName.trim()}>
+                Crear comunidad
+              </button>
+            </div>
+            {communityError && <p className="error-text">{communityError}</p>}
+          </form>
+        </div>
+      )}
+
+      <div className="comm-filter-tabs">
+        <button
+          className={`comm-tab${!showAllCommunities ? ' comm-tab--active' : ''}`}
+          onClick={() => setShowAllCommunities(false)}
+        >
+          Mis comunidades
+        </button>
+        <button
+          className={`comm-tab${showAllCommunities ? ' comm-tab--active' : ''}`}
+          onClick={() => setShowAllCommunities(true)}
+        >
+          Todas
+        </button>
+      </div>
+
+      <div className="community-list">
+        {displayCommunities.length === 0 && !showAllCommunities && (
+          <div style={{ padding: '0.5rem 0' }}>
+            <p style={{ fontSize: '0.83rem', color: '#bbb', marginBottom: '0.5rem' }}>
+              Aún no te has unido a ninguna comunidad.
+            </p>
+            <button className="comm-tab" style={{ fontSize: '0.78rem' }} onClick={() => setShowAllCommunities(true)}>
+              Ver todas →
+            </button>
+          </div>
+        )}
+        {displayCommunities.map(c => {
+          const memberCount = allCommunityMembers.filter(m => m.community_id === c.id).length
+          const isJoined = joinedCommunityIds.has(c.id)
+          return (
+            <div key={c.id} className="community-item">
+              <button
+                className={`community-btn${activeCommunity?.id === c.id ? ' community-btn--active' : ''}`}
+                onClick={() => setActiveCommunity(c)}
+                style={{ flex: 1 }}
+              >
+                <IcoCommunities size={15} />
+                <span style={{ flex: 1, textAlign: 'left' }}>{c.name}</span>
+                {memberCount > 0 && (
+                  <span className="community-member-count">
+                    <IcoUsers size={11} />
+                    {memberCount}
+                  </span>
+                )}
+              </button>
+              {currentUser && (
+                <button
+                  className={isJoined ? 'community-leave-btn' : 'community-join-btn'}
+                  onClick={() => isJoined ? onLeaveCommunity(c.id) : onJoinCommunity(c.id)}
+                  title={isJoined ? 'Salir de la comunidad' : 'Unirse a la comunidad'}
+                >
+                  {isJoined ? '✓' : '+'}
+                </button>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {activeCommunity ? (
         <>
-          <h2>Chat · {activeCommunity.name}</h2>
+          <div style={{ marginBottom: '0.75rem' }}>
+            <h2 style={{ marginBottom: '0.15rem' }}>{activeCommunity.name}</h2>
+            {activeCommunity.description && (
+              <p style={{ fontSize: '0.8rem', color: '#aaa', margin: 0 }}>{activeCommunity.description}</p>
+            )}
+          </div>
+
           <ul className="messages-list">
+            {messages.length === 0 && (
+              <li style={{ color: '#ccc', fontSize: '0.8rem', fontStyle: 'italic', border: 'none' }}>
+                Sé el primero en publicar algo…
+              </li>
+            )}
             {messages.map(m => (
               <li key={m.id} className={m.optimistic ? 'msg-pending' : ''}>
+                {m.title && <div className="post-title">{m.title}</div>}
                 <div className="msg-content-row">
                   <div className="msg-body">
                     <strong>{m.username}</strong>
@@ -410,18 +580,29 @@ function CommunitiesSection({
                       </div>
                     )}
                   </div>
-                  {!m.optimistic && (
-                    <button
-                      className="comment-toggle-btn"
-                      onClick={() => toggleComments(m.id)}
-                      title={expandedComments.has(m.id) ? 'Ocultar comentarios' : 'Ver comentarios'}
-                    >
-                      <IcoComment size={12} />
-                      {(comments[m.id]?.length ?? 0) > 0 && (
-                        <span className="comment-count">{comments[m.id].length}</span>
-                      )}
-                    </button>
-                  )}
+                  <div className="msg-actions">
+                    {!m.optimistic && currentUser && (
+                      <button
+                        className={`post-save-btn${savedPostIds.has(m.id) ? ' post-save-btn--saved' : ''}`}
+                        onClick={() => savedPostIds.has(m.id) ? onUnsavePost(m.id) : onSavePost(m.id)}
+                        title={savedPostIds.has(m.id) ? 'Quitar de guardados' : 'Guardar publicación'}
+                      >
+                        <IcoBookmark size={12} filled={savedPostIds.has(m.id)} />
+                      </button>
+                    )}
+                    {!m.optimistic && (
+                      <button
+                        className="comment-toggle-btn"
+                        onClick={() => toggleComments(m.id)}
+                        title={expandedComments.has(m.id) ? 'Ocultar comentarios' : 'Ver comentarios'}
+                      >
+                        <IcoComment size={12} />
+                        {(comments[m.id]?.length ?? 0) > 0 && (
+                          <span className="comment-count">{comments[m.id].length}</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {!m.optimistic && expandedComments.has(m.id) && (
                   <div className="comment-section">
@@ -463,76 +644,92 @@ function CommunitiesSection({
             <li ref={messagesEndRef} />
           </ul>
 
-          {attachedFile && (
-            <div className="attach-preview">
-              {attachmentType === 'pdf' ? <IcoPdf size={14} /> : <IcoMic size={14} />}
-              <span className="attach-preview-name">{attachedFile.name}</span>
-              <button type="button" className="attach-clear-btn" onClick={onClearAttach} title="Quitar archivo">
-                <IcoX size={12} />
-              </button>
+          {currentUser && (
+            <div className="post-form">
+              <input
+                type="text"
+                className="post-title-input"
+                placeholder="Título de la publicación (opcional)"
+                value={messageTitle}
+                onChange={e => setMessageTitle(e.target.value)}
+                maxLength={300}
+              />
+              {attachedFile && (
+                <div className="attach-preview" style={{ margin: '0.4rem 0' }}>
+                  {attachmentType === 'pdf' ? <IcoPdf size={14} /> : <IcoMic size={14} />}
+                  <span className="attach-preview-name">{attachedFile.name}</span>
+                  <button type="button" className="attach-clear-btn" onClick={onClearAttach} title="Quitar archivo">
+                    <IcoX size={12} />
+                  </button>
+                </div>
+              )}
+              <form className="inline-form" style={{ marginTop: '0.4rem' }} onSubmit={sendMessage}>
+                <input
+                  type="text"
+                  placeholder={attachedFile ? 'Añade texto opcional…' : 'Escribe el contenido…'}
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                  autoFocus
+                />
+
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  style={{ display: 'none' }}
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) onPdfSelect(file)
+                    e.target.value = ''
+                  }}
+                />
+
+                <button
+                  type="button"
+                  className="attach-btn"
+                  onClick={() => pdfInputRef.current?.click()}
+                  title="Adjuntar PDF"
+                  disabled={isRecording || isUploading}
+                >
+                  <IcoPdf size={15} />
+                </button>
+
+                {isRecording ? (
+                  <button
+                    type="button"
+                    className="attach-btn attach-btn--recording"
+                    onClick={onStopRecord}
+                    title="Detener grabación"
+                  >
+                    <IcoStop size={15} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="attach-btn"
+                    onClick={onStartRecord}
+                    title="Grabar mensaje de voz"
+                    disabled={!!attachedFile || isUploading}
+                  >
+                    <IcoMic size={15} />
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isUploading || isRecording || (!newMessage.trim() && !attachedFile && !messageTitle.trim())}
+                >
+                  {isUploading ? 'Subiendo…' : 'Publicar'}
+                </button>
+              </form>
             </div>
           )}
-
-          <form className="inline-form" onSubmit={sendMessage}>
-            <input
-              type="text"
-              placeholder={attachedFile ? 'Añade un mensaje opcional…' : 'Escribe un mensaje…'}
-              value={newMessage}
-              onChange={e => setNewMessage(e.target.value)}
-              autoFocus
-            />
-
-            <input
-              ref={pdfInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              style={{ display: 'none' }}
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (file) onPdfSelect(file)
-                e.target.value = ''
-              }}
-            />
-
-            <button
-              type="button"
-              className="attach-btn"
-              onClick={() => pdfInputRef.current?.click()}
-              title="Adjuntar PDF"
-              disabled={isRecording || isUploading}
-            >
-              <IcoPdf size={15} />
-            </button>
-
-            {isRecording ? (
-              <button
-                type="button"
-                className="attach-btn attach-btn--recording"
-                onClick={onStopRecord}
-                title="Detener grabación"
-              >
-                <IcoStop size={15} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="attach-btn"
-                onClick={onStartRecord}
-                title="Grabar mensaje de voz"
-                disabled={!!attachedFile || isUploading}
-              >
-                <IcoMic size={15} />
-              </button>
-            )}
-
-            <button type="submit" disabled={isUploading || isRecording || (!newMessage.trim() && !attachedFile)}>
-              {isUploading ? 'Subiendo…' : 'Enviar'}
-            </button>
-          </form>
         </>
       ) : (
         <p style={{ fontSize: '0.85rem', color: '#bbb' }}>
-          Selecciona una comunidad para ver el chat.
+          {displayCommunities.length > 0
+            ? 'Selecciona una comunidad para ver las publicaciones.'
+            : 'Únete a una comunidad para comenzar.'}
         </p>
       )}
     </div>
@@ -617,15 +814,190 @@ function ProfileSection({
   )
 }
 
-function ExploreSection() {
+function ExploreSection({
+  communities,
+  joinedCommunityIds,
+  allCommunityMembers,
+  onJoinCommunity,
+  onLeaveCommunity,
+  currentUser,
+  savedMessages,
+  onLoadSavedMessages,
+  searchQuery,
+  searchResults,
+  onNavigateToCommunity,
+  exploreTab,
+  setExploreTab,
+}: {
+  communities: Community[]
+  joinedCommunityIds: Set<string>
+  allCommunityMembers: { community_id: string; user_id: string }[]
+  onJoinCommunity: (id: string) => void
+  onLeaveCommunity: (id: string) => void
+  currentUser: AppUser | undefined
+  savedMessages: Message[]
+  onLoadSavedMessages: () => void
+  searchQuery: string
+  searchResults: SearchResults | null
+  onNavigateToCommunity: (c: Community) => void
+  exploreTab: 'browse' | 'saved'
+  setExploreTab: (t: 'browse' | 'saved') => void
+}) {
+  const prevTab = useRef(exploreTab)
+  useEffect(() => {
+    if (exploreTab === 'saved' && prevTab.current !== 'saved') {
+      onLoadSavedMessages()
+    }
+    prevTab.current = exploreTab
+  }, [exploreTab, onLoadSavedMessages])
+
+  if (searchQuery.length >= 2 && searchResults) {
+    const hasResults = searchResults.communities.length > 0 || searchResults.posts.length > 0
+    return (
+      <div>
+        <div className="section-title">Resultados para &ldquo;{searchQuery}&rdquo;</div>
+
+        {!hasResults && (
+          <p style={{ fontSize: '0.85rem', color: '#bbb' }}>Sin resultados. Intenta con otro término.</p>
+        )}
+
+        {searchResults.communities.length > 0 && (
+          <>
+            <h2>Comunidades</h2>
+            <div className="explore-community-list" style={{ marginBottom: '1.5rem' }}>
+              {searchResults.communities.map(c => {
+                const memberCount = allCommunityMembers.filter(m => m.community_id === c.id).length
+                const isJoined = joinedCommunityIds.has(c.id)
+                return (
+                  <div key={c.id} className="explore-community-card">
+                    <div
+                      className="explore-community-info"
+                      onClick={() => onNavigateToCommunity(c)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="explore-community-name">{c.name}</div>
+                      {c.description && <div className="explore-community-desc">{c.description}</div>}
+                      <div className="explore-community-meta">
+                        <IcoUsers size={11} />
+                        {memberCount} {memberCount === 1 ? 'miembro' : 'miembros'}
+                      </div>
+                    </div>
+                    {currentUser && (
+                      <button
+                        className={isJoined ? 'community-leave-btn' : 'community-join-btn'}
+                        onClick={() => isJoined ? onLeaveCommunity(c.id) : onJoinCommunity(c.id)}
+                      >
+                        {isJoined ? 'Unido ✓' : 'Unirse'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {searchResults.posts.length > 0 && (
+          <>
+            <h2>Publicaciones</h2>
+            <ul className="messages-list" style={{ maxHeight: 'none' }}>
+              {searchResults.posts.map(m => (
+                <li key={m.id}>
+                  {m.title && <div className="post-title">{m.title}</div>}
+                  <span><strong>{m.username}</strong>: {m.content}</span>
+                  {m.attachment_url && m.attachment_type && (
+                    <div className="msg-attachment-wrap">
+                      <MessageAttachment url={m.attachment_url} type={m.attachment_type} />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="section-title">Explorar</div>
-      <div className="explore-placeholder">
-        <IcoExplore size={36} />
-        <h2>Próximamente</h2>
-        <p>Descubre nuevas comunidades y personas.</p>
+
+      <div className="comm-filter-tabs" style={{ marginBottom: '1.25rem' }}>
+        <button
+          className={`comm-tab${exploreTab === 'browse' ? ' comm-tab--active' : ''}`}
+          onClick={() => setExploreTab('browse')}
+        >
+          Comunidades
+        </button>
+        <button
+          className={`comm-tab${exploreTab === 'saved' ? ' comm-tab--active' : ''}`}
+          onClick={() => setExploreTab('saved')}
+        >
+          Guardados
+        </button>
       </div>
+
+      {exploreTab === 'browse' && (
+        <>
+          <h2>{communities.length} {communities.length === 1 ? 'comunidad' : 'comunidades'}</h2>
+          <div className="explore-community-list">
+            {communities.map(c => {
+              const memberCount = allCommunityMembers.filter(m => m.community_id === c.id).length
+              const isJoined = joinedCommunityIds.has(c.id)
+              return (
+                <div key={c.id} className="explore-community-card">
+                  <div
+                    className="explore-community-info"
+                    onClick={() => onNavigateToCommunity(c)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="explore-community-name">{c.name}</div>
+                    {c.description && <div className="explore-community-desc">{c.description}</div>}
+                    <div className="explore-community-meta">
+                      <IcoUsers size={11} />
+                      {memberCount} {memberCount === 1 ? 'miembro' : 'miembros'}
+                    </div>
+                  </div>
+                  {currentUser && (
+                    <button
+                      className={isJoined ? 'community-leave-btn' : 'community-join-btn'}
+                      onClick={() => isJoined ? onLeaveCommunity(c.id) : onJoinCommunity(c.id)}
+                    >
+                      {isJoined ? 'Unido ✓' : 'Unirse'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {exploreTab === 'saved' && (
+        <>
+          <h2>Publicaciones guardadas</h2>
+          {savedMessages.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: '#bbb' }}>
+              Aún no has guardado ninguna publicación. Usa el icono <IcoBookmark size={12} /> en cualquier post.
+            </p>
+          ) : (
+            <ul className="messages-list" style={{ maxHeight: 'none', marginBottom: 0 }}>
+              {savedMessages.map(m => (
+                <li key={m.id}>
+                  {m.title && <div className="post-title">{m.title}</div>}
+                  <span><strong>{m.username}</strong>: {m.content}</span>
+                  {m.attachment_url && m.attachment_type && (
+                    <div className="msg-attachment-wrap">
+                      <MessageAttachment url={m.attachment_url} type={m.attachment_type} />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -1126,6 +1498,20 @@ function App({ session }: { session: Session }) {
   const typingChannelRef = useRef<any>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // ── Reddit-style state ──────────────────────────────────────────────────────
+  const [joinedCommunityIds, setJoinedCommunityIds] = useState<Set<string>>(new Set())
+  const [allCommunityMembers, setAllCommunityMembers] = useState<{ community_id: string; user_id: string }[]>([])
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set())
+  const [savedMessages, setSavedMessages] = useState<Message[]>([])
+  const [showCreateCommunity, setShowCreateCommunity] = useState(false)
+  const [newCommunityName, setNewCommunityName] = useState('')
+  const [newCommunityDesc, setNewCommunityDesc] = useState('')
+  const [communityError, setCommunityError] = useState('')
+  const [showAllCommunities, setShowAllCommunities] = useState(false)
+  const [messageTitle, setMessageTitle] = useState('')
+  const [exploreTab, setExploreTab] = useState<'browse' | 'saved'>('browse')
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null)
+
   const currentUser = users.find(u => u.id === session.user.id)
 
   // ── Load users (+ real-time) ────────────────────────────────────────────────
@@ -1149,14 +1535,22 @@ function App({ session }: { session: Session }) {
     return () => { supabase.removeChannel(channel) }
   }, [supabase])
 
-  // ── Load communities ────────────────────────────────────────────────────────
+  // ── Load communities (+ real-time) ─────────────────────────────────────────
 
   useEffect(() => {
-    supabase
-      .from('communities')
-      .select('id, name')
-      .order('name')
-      .then(({ data }) => { if (data) setCommunities(data) })
+    async function fetchCommunities() {
+      const { data } = await supabase
+        .from('communities')
+        .select('id, name, description, created_by')
+        .order('name')
+      if (data) setCommunities(data as unknown as Community[])
+    }
+    fetchCommunities()
+    const channel = supabase
+      .channel('communities-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'communities' }, fetchCommunities)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [supabase])
 
   // ── Load messages + real-time for active community ──────────────────────────
@@ -1167,18 +1561,20 @@ function App({ session }: { session: Session }) {
     async function fetchMessages() {
       const { data } = await supabase
         .from('messages')
-        .select('id, community_id, user_id, content, attachment_url, attachment_type, created_at, users(username)')
+        .select('id, community_id, user_id, content, title, attachment_url, attachment_type, created_at, users(username)')
         .eq('community_id', activeCommunity!.id)
         .order('created_at', { ascending: true })
         .limit(100)
 
       if (data) {
         setMessages(
-          data.map(m => ({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.map((m: any) => ({
             id: m.id,
             community_id: m.community_id,
             user_id: m.user_id,
             content: m.content,
+            title: m.title ?? null,
             attachment_url: m.attachment_url,
             attachment_type: m.attachment_type as 'pdf' | 'audio' | null,
             created_at: m.created_at,
@@ -1196,7 +1592,7 @@ function App({ session }: { session: Session }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `community_id=eq.${activeCommunity.id}` },
         async payload => {
-          const row = payload.new as { id: string; community_id: string; user_id: string; content: string; attachment_url: string | null; attachment_type: 'pdf' | 'audio' | null; created_at: string }
+          const row = payload.new as { id: string; community_id: string; user_id: string; content: string; title?: string | null; attachment_url: string | null; attachment_type: 'pdf' | 'audio' | null; created_at: string }
 
           const { data: userData } = await supabase
             .from('users')
@@ -1206,6 +1602,7 @@ function App({ session }: { session: Session }) {
 
           const incoming: Message = {
             ...row,
+            title: row.title ?? null,
             attachment_url: row.attachment_url,
             attachment_type: row.attachment_type,
             username: userData?.username ?? row.user_id,
@@ -1313,6 +1710,84 @@ function App({ session }: { session: Session }) {
 
     return () => { supabase.removeChannel(channel) }
   }, [activeCommunity, supabase])
+
+  // ── Load community memberships (+ real-time) ────────────────────────────────
+
+  useEffect(() => {
+    async function fetchMemberships() {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from('community_members').select('community_id, user_id') as { data: { community_id: string; user_id: string }[] | null }
+      if (data) {
+        setAllCommunityMembers(data)
+        setJoinedCommunityIds(new Set(
+          data.filter(m => m.user_id === session.user.id).map(m => m.community_id)
+        ))
+      }
+    }
+    fetchMemberships()
+    const channel = supabase
+      .channel('community-members-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_members' }, fetchMemberships)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [supabase, session.user.id])
+
+  // ── Load saved post IDs ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(supabase as any)
+      .from('saved_posts')
+      .select('message_id')
+      .eq('user_id', session.user.id)
+      .then(({ data }: { data: { message_id: string }[] | null }) => {
+        if (data) setSavedPostIds(new Set(data.map(s => s.message_id)))
+      })
+  }, [supabase, session.user.id])
+
+  // ── Search effect (debounced) ────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults(null)
+      return
+    }
+    const timer = setTimeout(async () => {
+      const q = `%${searchQuery}%`
+      const [{ data: posts }, { data: comms }] = await Promise.all([
+        supabase
+          .from('messages')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .select('id, community_id, user_id, content, title, attachment_url, attachment_type, created_at, users(username)' as any)
+          .or(`content.ilike.${q},title.ilike.${q}`)
+          .limit(15),
+        supabase
+          .from('communities')
+          .select('id, name, description, created_by')
+          .or(`name.ilike.${q},description.ilike.${q}`)
+          .limit(10),
+      ])
+      setSearchResults({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        posts: (posts ?? []).map((m: any) => ({
+          id: m.id,
+          community_id: m.community_id,
+          user_id: m.user_id,
+          content: m.content,
+          title: m.title ?? null,
+          attachment_url: m.attachment_url ?? null,
+          attachment_type: m.attachment_type ?? null,
+          created_at: m.created_at,
+          username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+        })),
+        communities: (comms ?? []) as unknown as Community[],
+      })
+      if ((posts?.length ?? 0) > 0 || (comms?.length ?? 0) > 0) {
+        setActiveSection('explore')
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery, supabase])
 
   // ── Ctrl+K focuses search bar ────────────────────────────────────────────────
 
@@ -1566,7 +2041,8 @@ function App({ session }: { session: Session }) {
   async function sendMessage(e: FormEvent) {
     e.preventDefault()
     const content = newMessage.trim()
-    if (!content && !attachedFile) return
+    const title = messageTitle.trim() || null
+    if (!content && !attachedFile && !title) return
     if (!activeCommunity) return
 
     let attachment_url: string | null = null
@@ -1597,6 +2073,7 @@ function App({ session }: { session: Session }) {
         community_id: activeCommunity.id,
         user_id: session.user.id,
         content,
+        title,
         attachment_url,
         attachment_type,
         created_at: new Date().toISOString(),
@@ -1605,13 +2082,16 @@ function App({ session }: { session: Session }) {
       },
     ])
     setNewMessage('')
+    setMessageTitle('')
     setAttachedFile(null)
     setAttachmentType(null)
 
-    await supabase.from('messages').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from('messages') as any).insert({
       community_id: activeCommunity.id,
       user_id: session.user.id,
       content: content || '',
+      title,
       attachment_url,
       attachment_type,
     })
@@ -1680,6 +2160,98 @@ function App({ session }: { session: Session }) {
     } else {
       setStatusInput('')
     }
+  }
+
+  // ── Reddit-style handlers ───────────────────────────────────────────────────
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  async function joinCommunity(communityId: string) {
+    const { error } = await db
+      .from('community_members')
+      .insert({ community_id: communityId, user_id: session.user.id })
+    if (!error) {
+      setJoinedCommunityIds(prev => new Set([...prev, communityId]))
+      setAllCommunityMembers(prev => [...prev, { community_id: communityId, user_id: session.user.id }])
+    }
+  }
+
+  async function leaveCommunity(communityId: string) {
+    await db
+      .from('community_members')
+      .delete()
+      .eq('community_id', communityId)
+      .eq('user_id', session.user.id)
+    setJoinedCommunityIds(prev => { const next = new Set(prev); next.delete(communityId); return next })
+    setAllCommunityMembers(prev => prev.filter((m: { community_id: string; user_id: string }) => !(m.community_id === communityId && m.user_id === session.user.id)))
+  }
+
+  async function savePost(messageId: string) {
+    const { error } = await db
+      .from('saved_posts')
+      .insert({ user_id: session.user.id, message_id: messageId })
+    if (!error) setSavedPostIds(prev => new Set([...prev, messageId]))
+  }
+
+  async function unsavePost(messageId: string) {
+    await db
+      .from('saved_posts')
+      .delete()
+      .eq('user_id', session.user.id)
+      .eq('message_id', messageId)
+    setSavedPostIds(prev => { const next = new Set(prev); next.delete(messageId); return next })
+    setSavedMessages(prev => prev.filter(m => m.id !== messageId))
+  }
+
+  async function createCommunity(e: FormEvent) {
+    e.preventDefault()
+    const name = newCommunityName.trim()
+    if (!name) return
+    setCommunityError('')
+    const { error } = await db.from('communities').insert({
+      name,
+      description: newCommunityDesc.trim(),
+      created_by: session.user.id,
+    })
+    if (error) { setCommunityError(error.message); return }
+    setNewCommunityName('')
+    setNewCommunityDesc('')
+    setShowCreateCommunity(false)
+  }
+
+  async function loadSavedMessages() {
+    const { data } = await db
+      .from('saved_posts')
+      .select('message_id, messages(id, community_id, user_id, content, title, attachment_url, attachment_type, created_at, users(username))')
+      .eq('user_id', session.user.id)
+      .order('saved_at', { ascending: false }) as { data: { message_id: string; messages: unknown }[] | null }
+
+    if (data) {
+      setSavedMessages(
+        data
+          .map(s => s.messages)
+          .filter(Boolean)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((m: any) => ({
+            id: m.id,
+            community_id: m.community_id,
+            user_id: m.user_id,
+            content: m.content,
+            title: m.title ?? null,
+            attachment_url: m.attachment_url ?? null,
+            attachment_type: m.attachment_type ?? null,
+            created_at: m.created_at,
+            username: (Array.isArray(m.users) ? m.users[0]?.username : (m.users as { username: string } | null)?.username) ?? m.user_id,
+          }))
+      )
+    }
+  }
+
+  function navigateToCommunity(c: Community) {
+    setShowAllCommunities(true)
+    setActiveCommunity(c)
+    setActiveSection('communities')
   }
 
   // ── Presence handlers ───────────────────────────────────────────────────────
@@ -1784,6 +2356,8 @@ function App({ session }: { session: Session }) {
               messages={messages}
               newMessage={newMessage}
               setNewMessage={setNewMessage}
+              messageTitle={messageTitle}
+              setMessageTitle={setMessageTitle}
               sendMessage={sendMessage}
               messagesEndRef={messagesEndRef}
               attachedFile={attachedFile}
@@ -1801,6 +2375,23 @@ function App({ session }: { session: Session }) {
               setCommentInput={setCommentInput}
               sendComment={sendComment}
               currentUser={currentUser}
+              joinedCommunityIds={joinedCommunityIds}
+              allCommunityMembers={allCommunityMembers}
+              onJoinCommunity={joinCommunity}
+              onLeaveCommunity={leaveCommunity}
+              savedPostIds={savedPostIds}
+              onSavePost={savePost}
+              onUnsavePost={unsavePost}
+              showCreateCommunity={showCreateCommunity}
+              setShowCreateCommunity={setShowCreateCommunity}
+              newCommunityName={newCommunityName}
+              setNewCommunityName={setNewCommunityName}
+              newCommunityDesc={newCommunityDesc}
+              setNewCommunityDesc={setNewCommunityDesc}
+              createCommunity={createCommunity}
+              communityError={communityError}
+              showAllCommunities={showAllCommunities}
+              setShowAllCommunities={setShowAllCommunities}
             />
           )}
           {activeSection === 'friends' && (
@@ -1829,7 +2420,23 @@ function App({ session }: { session: Session }) {
               statusError={statusError}
             />
           )}
-          {activeSection === 'explore' && <ExploreSection />}
+          {activeSection === 'explore' && (
+            <ExploreSection
+              communities={communities}
+              joinedCommunityIds={joinedCommunityIds}
+              allCommunityMembers={allCommunityMembers}
+              onJoinCommunity={joinCommunity}
+              onLeaveCommunity={leaveCommunity}
+              currentUser={currentUser}
+              savedMessages={savedMessages}
+              onLoadSavedMessages={loadSavedMessages}
+              searchQuery={searchQuery}
+              searchResults={searchResults}
+              onNavigateToCommunity={navigateToCommunity}
+              exploreTab={exploreTab}
+              setExploreTab={setExploreTab}
+            />
+          )}
           {activeSection === 'presence' && (
             <PresenceSection
               currentUser={currentUser}
