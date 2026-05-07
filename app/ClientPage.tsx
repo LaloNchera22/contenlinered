@@ -213,7 +213,10 @@ const IcoX = ({ size = 14 }: IcoProps) => (
 
 const IcoPresence = ({ size = 20 }: IcoProps) => (
   <Ico size={size}>
-    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
   </Ico>
 )
 
@@ -393,7 +396,7 @@ const NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => React
   { section: 'friends',       label: 'Amigos',         Icon: IcoFriends },
   { section: 'messages',      label: 'Mensajes',       Icon: IcoMessages },
   { section: 'explore',       label: 'Explorar',       Icon: IcoExplore },
-  { section: 'presence',      label: 'Presencia',      Icon: IcoPresence },
+  { section: 'presence',      label: 'Salas',          Icon: IcoPresence },
   { section: 'notifications', label: 'Notificaciones', Icon: IcoBell },
   { section: 'profile',       label: 'Perfil',         Icon: IcoProfile },
   { section: 'settings',      label: 'Ajustes',        Icon: IcoSettings },
@@ -479,7 +482,7 @@ function Sidebar({
 const BOTTOM_NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => ReactNode }[] = [
   { section: 'communities',   label: 'Inicio',    Icon: IcoCommunities },
   { section: 'explore',       label: 'Explorar',  Icon: IcoExplore },
-  { section: 'presence',      label: 'Presencia', Icon: IcoPresence },
+  { section: 'presence',      label: 'Salas',     Icon: IcoPresence },
   { section: 'notifications', label: 'Avisos',    Icon: IcoBell },
   { section: 'profile',       label: 'Perfil',    Icon: IcoProfile },
 ]
@@ -740,19 +743,27 @@ function CommunitiesSection({
 
   return (
     <div>
-      <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Comunidades</span>
-        {currentUser && (
-          <button
-            className="comm-create-btn"
-            onClick={() => setShowCreateCommunity(!showCreateCommunity)}
-            title="Crear comunidad"
-          >
-            <IcoPlus size={12} />
-            {showCreateCommunity ? 'Cancelar' : 'Nueva'}
-          </button>
-        )}
-      </div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">RED</span>
+            <h1 className="page-header-title">Comunidades.</h1>
+            <p className="page-header-sub">Conversaciones por afinidad e interés.</p>
+          </div>
+          {currentUser && (
+            <div className="page-header-actions">
+              <button
+                type="button"
+                className="btn-pill-primary"
+                onClick={() => setShowCreateCommunity(!showCreateCommunity)}
+              >
+                {showCreateCommunity ? 'Cancelar' : 'Nueva comunidad'}
+                <IcoPlus size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
 
       {showCreateCommunity && (
         <div className="create-community-form">
@@ -1085,7 +1096,15 @@ function FriendsSection({
 
   return (
     <div>
-      <div className="section-title">Amigos</div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">PERSONAS</span>
+            <h1 className="page-header-title">Amigos.</h1>
+            <p className="page-header-sub">Tu red cercana. Solicitudes, conexiones y descubrimientos.</p>
+          </div>
+        </div>
+      </header>
 
       <div className="comm-filter-tabs" style={{ marginBottom: '1.25rem' }}>
         <button
@@ -1305,7 +1324,15 @@ function ProfileSection({
 
   return (
     <div>
-      <div className="section-title">Perfil</div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">TÚ</span>
+            <h1 className="page-header-title">Perfil.</h1>
+            <p className="page-header-sub">Cómo te ven los demás. Estado, skills y enlaces.</p>
+          </div>
+        </div>
+      </header>
 
       {currentUser && (
         <div className="profile-card">
@@ -1489,7 +1516,15 @@ function ExploreSection({
     const hasResults = searchResults.communities.length > 0 || searchResults.posts.length > 0
     return (
       <div>
-        <div className="section-title">Resultados para &ldquo;{searchQuery}&rdquo;</div>
+        <header className="page-header">
+          <div className="page-header-row">
+            <div className="page-header-text">
+              <span className="page-header-eyebrow">BÚSQUEDA</span>
+              <h1 className="page-header-title">Resultados.</h1>
+              <p className="page-header-sub">Coincidencias para &ldquo;{searchQuery}&rdquo;.</p>
+            </div>
+          </div>
+        </header>
 
         {!hasResults && (
           <p style={{ fontSize: '0.85rem', color: '#bbb' }}>Sin resultados. Intenta con otro término.</p>
@@ -1555,7 +1590,15 @@ function ExploreSection({
 
   return (
     <div>
-      <div className="section-title">Explorar</div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">DESCUBRIR</span>
+            <h1 className="page-header-title">Explorar.</h1>
+            <p className="page-header-sub">Encuentra ideas, personas y comunidades por interés.</p>
+          </div>
+        </div>
+      </header>
 
       <div className="comm-filter-tabs" style={{ marginBottom: '1.25rem' }}>
         <button
@@ -1684,6 +1727,40 @@ function ExploreSection({
   )
 }
 
+const ROOM_CATEGORIES = ['Diseño', 'Escritura', 'Tecnología', 'Cultura', 'General'] as const
+type RoomCategory = typeof ROOM_CATEGORIES[number]
+
+const CATEGORY_KEYWORDS: Record<Exclude<RoomCategory, 'General'>, string[]> = {
+  'Diseño':     ['diseño', 'design', 'tipograf', 'kerning', 'figma', 'ux', 'ui', 'estética', 'visual', 'minimal'],
+  'Escritura':  ['escrit', 'redac', 'cuento', 'novela', 'ensayo', 'poesía', 'poema', 'párrafo', 'texto', 'libro'],
+  'Tecnología': ['tech', 'tecnolog', 'código', 'codigo', 'soft', 'devops', 'react', 'rust', 'python', 'ia', 'ai', 'machine', 'algoritmo', 'api', 'data'],
+  'Cultura':    ['cultura', 'arte', 'cine', 'música', 'musica', 'historia', 'filosof', 'política', 'sociedad', 'libro'],
+}
+
+function inferRoomCategory(topic: string): RoomCategory {
+  const t = topic.toLowerCase()
+  for (const cat of Object.keys(CATEGORY_KEYWORDS) as Array<Exclude<RoomCategory, 'General'>>) {
+    if (CATEGORY_KEYWORDS[cat].some(k => t.includes(k))) return cat
+  }
+  return 'General'
+}
+
+function splitTopic(topic: string): { title: string; description: string } {
+  const trimmed = topic.trim()
+  const newlineIdx = trimmed.indexOf('\n')
+  if (newlineIdx > 0) {
+    return {
+      title: trimmed.slice(0, newlineIdx).trim(),
+      description: trimmed.slice(newlineIdx + 1).trim(),
+    }
+  }
+  const sepMatch = trimmed.match(/^(.{4,80}?)\s*[—–:|·]\s+(.{6,})$/)
+  if (sepMatch) {
+    return { title: sepMatch[1].trim(), description: sepMatch[2].trim() }
+  }
+  return { title: trimmed, description: '' }
+}
+
 function PresenceSection({
   currentUser,
   liveSessions,
@@ -1725,6 +1802,10 @@ function PresenceSection({
   onDeleteSession: (s: LiveSession) => void
   sessionEndRef: React.RefObject<HTMLLIElement | null>
 }) {
+  const [search, setSearch] = useState('')
+  const [activeCat, setActiveCat] = useState<'Todas' | RoomCategory>('Todas')
+  const [showCreate, setShowCreate] = useState(false)
+
   function computeAffinity(sessionTopic: string): number {
     if (!currentUser?.public_status) return 0
     const normalize = (s: string) =>
@@ -1737,26 +1818,34 @@ function PresenceSection({
   }
 
   if (activeSession) {
+    const { title, description } = splitTopic(activeSession.topic)
     return (
       <div>
-        <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button className="presence-back-btn" onClick={onLeaveSession} title="Salir de la sala">
-            ←
-          </button>
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {activeSession.topic}
-          </span>
-          {currentUser && activeSession.created_by === currentUser.id && (
-            <button
-              className="btn-danger"
-              style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
-              onClick={() => onDeleteSession(activeSession)}
-              title="Eliminar sala"
-            >
-              Eliminar sala
+        <header className="page-header page-header--compact">
+          <div className="page-header-meta">
+            <button className="page-back-btn" onClick={onLeaveSession} title="Salir de la sala">
+              ← Salir de la sala
             </button>
-          )}
-        </div>
+            <span className="page-header-eyebrow">SALA EN VIVO</span>
+          </div>
+          <div className="page-header-row">
+            <div className="page-header-text">
+              <h1 className="page-header-title">{title}</h1>
+              {description && <p className="page-header-sub">{description}</p>}
+            </div>
+            {currentUser && activeSession.created_by === currentUser.id && (
+              <div className="page-header-actions">
+                <button
+                  className="btn-ghost-line"
+                  onClick={() => onDeleteSession(activeSession)}
+                  title="Eliminar sala"
+                >
+                  Eliminar sala
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
 
         <div className="presence-members-bar">
           {sessionMembers.map(m => (
@@ -1803,71 +1892,186 @@ function PresenceSection({
     )
   }
 
-  const sortedSessions = [...liveSessions].sort(
-    (a, b) => computeAffinity(b.topic) - computeAffinity(a.topic),
-  )
+  const sortedSessions = [...liveSessions].sort((a, b) => {
+    const af = computeAffinity(b.topic) - computeAffinity(a.topic)
+    if (af !== 0) return af
+    const liveA = allSessionMembers.filter(m => m.session_id === a.id).length
+    const liveB = allSessionMembers.filter(m => m.session_id === b.id).length
+    if (liveB !== liveA) return liveB - liveA
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+
+  const annotated = sortedSessions.map(s => {
+    const count = allSessionMembers.filter(m => m.session_id === s.id).length
+    return { session: s, category: inferRoomCategory(s.topic), liveCount: count }
+  })
+
+  const usedCategories = ROOM_CATEGORIES.filter(c => annotated.some(a => a.category === c))
+  const tabs: Array<'Todas' | RoomCategory> = ['Todas', ...usedCategories]
+
+  const q = search.trim().toLowerCase()
+  const filtered = annotated.filter(a => {
+    if (activeCat !== 'Todas' && a.category !== activeCat) return false
+    if (q && !a.session.topic.toLowerCase().includes(q)) return false
+    return true
+  })
+
+  function handleCreate(e: FormEvent) {
+    onCreateSession(e)
+  }
 
   return (
     <div>
-      <div className="section-title">Eventos de Presencia</div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">ESPACIOS</span>
+            <h1 className="page-header-title">Salas.</h1>
+            <p className="page-header-sub">Conversaciones en torno a una idea. Entra, escucha, escribe.</p>
+          </div>
+          <div className="page-header-actions">
+            <label className="search-inline" onClick={e => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}>
+              <span className="search-inline-icon" aria-hidden><IcoSearch size={14} /></span>
+              <input
+                type="text"
+                placeholder="Buscar sala"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                aria-label="Buscar sala"
+              />
+            </label>
+            {currentUser && (
+              <button
+                type="button"
+                className="btn-pill-primary"
+                onClick={() => setShowCreate(v => !v)}
+                aria-expanded={showCreate}
+              >
+                {showCreate ? 'Cancelar' : 'Crear sala'}
+                <IcoPlus size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
 
-      <h2>Salas activas</h2>
-      {sortedSessions.length === 0 ? (
-        <p style={{ fontSize: '0.85rem', color: '#bbb', marginBottom: '1.5rem' }}>
-          No hay salas activas. Crea la primera.
-        </p>
+      {showCreate && currentUser && (
+        <div className="create-room-form">
+          <form onSubmit={(e) => { handleCreate(e); if (newSessionTopic.trim()) setShowCreate(false) }}>
+            <label className="create-room-label">Tema de la sala</label>
+            <input
+              type="text"
+              placeholder="¿Sobre qué quieres hablar?"
+              value={newSessionTopic}
+              onChange={e => setNewSessionTopic(e.target.value)}
+              maxLength={200}
+              autoFocus
+            />
+            <div className="create-room-actions">
+              <button type="submit" className="btn-pill-primary" disabled={!newSessionTopic.trim()}>
+                Abrir sala
+              </button>
+              <span className="create-room-hint">
+                Categoría detectada: <strong>{newSessionTopic.trim() ? inferRoomCategory(newSessionTopic) : '—'}</strong>
+              </span>
+            </div>
+            {sessionError && <p className="error-text">{sessionError}</p>}
+          </form>
+        </div>
+      )}
+
+      <nav className="tabs-line" role="tablist" aria-label="Filtrar salas por categoría">
+        {tabs.map(cat => (
+          <button
+            key={cat}
+            role="tab"
+            aria-selected={activeCat === cat}
+            className={`tab-line${activeCat === cat ? ' tab-line--active' : ''}`}
+            onClick={() => setActiveCat(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </nav>
+
+      <div className="list-counter">
+        <span className="list-counter-count">
+          {filtered.length} {filtered.length === 1 ? 'SALA' : 'SALAS'}
+        </span>
+        <span className="list-counter-sort">ORDENADO POR ACTIVIDAD</span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <p className="empty-state-text">
+            {liveSessions.length === 0
+              ? 'No hay salas activas todavía. Crea la primera.'
+              : 'Sin resultados. Prueba con otro término o categoría.'}
+          </p>
+        </div>
       ) : (
-        <div className="session-list">
-          {sortedSessions.map(s => {
-            const count = allSessionMembers.filter(m => m.session_id === s.id).length
+        <div className="room-grid">
+          {filtered.map(({ session: s, category, liveCount }) => {
             const af = computeAffinity(s.topic)
+            const { title, description } = splitTopic(s.topic)
+            const isLive = liveCount > 0
+            const isOwner = !!(currentUser && s.created_by === currentUser.id)
             return (
-              <div key={s.id} className={`session-card${af > 0.15 ? ' session-card--match' : ''}`}>
-                <div className="session-card-top">
-                  <span className="session-card-topic">{s.topic}</span>
-                  {af > 0.15 && (
-                    <span className="session-affinity-tag">
-                      {af > 0.5 ? 'Muy afín' : af > 0.3 ? 'Alta afinidad' : 'Afinidad'}
+              <article key={s.id} className={`room-card${af > 0.15 ? ' room-card--match' : ''}`}>
+                <div className="room-card-top">
+                  <span className="room-card-cat">{category.toUpperCase()}</span>
+                  {isLive && (
+                    <span className="room-card-live">
+                      <span className="room-live-dot" />
+                      EN VIVO
                     </span>
                   )}
                 </div>
-                <div className="session-card-meta">
-                  <span className="session-pulse-dot" />
-                  {count} {count === 1 ? 'persona' : 'personas'} en vivo
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <button className="session-enter-btn" onClick={() => onJoinSession(s)}>
-                    Entrar →
-                  </button>
-                  {currentUser && s.created_by === currentUser.id && (
+                <h3 className="room-card-title">{title}</h3>
+                {description ? (
+                  <p className="room-card-desc">{description}</p>
+                ) : af > 0.15 ? (
+                  <p className="room-card-desc room-card-desc--hint">
+                    {af > 0.5 ? 'Muy afín a tu estado.' : af > 0.3 ? 'Alta afinidad con tu estado.' : 'Afinidad con tu estado.'}
+                  </p>
+                ) : null}
+                <div className="room-card-foot">
+                  <div className="room-card-stats">
+                    <span className="room-card-stat">
+                      <IcoUsers size={11} />
+                      {liveCount} {liveCount === 1 ? 'miembro' : 'miembros'}
+                    </span>
+                    <span className="room-card-stat-sep">·</span>
+                    <span className="room-card-stat">
+                      <span className={`room-card-stat-dot${isLive ? ' room-card-stat-dot--on' : ''}`} />
+                      {liveCount} en línea
+                    </span>
+                  </div>
+                  <div className="room-card-cta">
+                    {isOwner && (
+                      <button
+                        type="button"
+                        className="room-card-del"
+                        onClick={() => onDeleteSession(s)}
+                        title="Eliminar sala"
+                      >
+                        Eliminar
+                      </button>
+                    )}
                     <button
-                      className="btn-danger"
-                      style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
-                      onClick={() => onDeleteSession(s)}
-                      title="Eliminar sala"
+                      type="button"
+                      className="room-card-enter"
+                      onClick={() => onJoinSession(s)}
                     >
-                      Eliminar
+                      Entrar <span aria-hidden>→</span>
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              </article>
             )
           })}
         </div>
       )}
-
-      <h2>Crear sala nueva</h2>
-      <form className="inline-form" onSubmit={onCreateSession}>
-        <input
-          type="text"
-          placeholder="¿Sobre qué quieres hablar?"
-          value={newSessionTopic}
-          onChange={e => setNewSessionTopic(e.target.value)}
-          maxLength={200}
-        />
-        <button type="submit" disabled={!newSessionTopic.trim()}>Crear</button>
-      </form>
-      {sessionError && <p className="error-text">{sessionError}</p>}
     </div>
   )
 }
@@ -1896,10 +2100,22 @@ function MessagesSection({
   if (activeDm) {
     return (
       <div>
-        <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button className="presence-back-btn" onClick={() => setActiveDm(null)} title="Volver">←</button>
-          <span>@{activeDm.username}</span>
-        </div>
+        <header className="page-header page-header--compact">
+          <div className="page-header-meta">
+            <button className="page-back-btn" onClick={() => setActiveDm(null)} title="Volver">
+              ← Volver a mensajes
+            </button>
+            <span className="page-header-eyebrow">DIRECTO</span>
+          </div>
+          <div className="page-header-row">
+            <div className="page-header-text">
+              <h1 className="page-header-title">@{activeDm.username}</h1>
+              {activeDm.public_status && (
+                <p className="page-header-sub">{activeDm.public_status}</p>
+              )}
+            </div>
+          </div>
+        </header>
 
         <ul className="messages-list">
           {dmMessages.length === 0 && (
@@ -1936,7 +2152,15 @@ function MessagesSection({
 
   return (
     <div>
-      <div className="section-title">Mensajes Privados</div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">DIRECTOS</span>
+            <h1 className="page-header-title">Mensajes.</h1>
+            <p className="page-header-sub">Conversaciones privadas, uno a uno.</p>
+          </div>
+        </div>
+      </header>
       {otherUsers.length === 0 ? (
         <p style={{ fontSize: '0.85rem', color: '#bbb' }}>No hay otros usuarios aún.</p>
       ) : (
@@ -1988,17 +2212,30 @@ function NotificationsSection({
 
   return (
     <div>
-      <div className="section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>Notificaciones</span>
-        {unread > 0 && (
-          <button
-            onClick={onMarkAllRead}
-            style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', fontWeight: 500 }}
-          >
-            Marcar todas como leídas
-          </button>
-        )}
-      </div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">AVISOS</span>
+            <h1 className="page-header-title">Notificaciones.</h1>
+            <p className="page-header-sub">
+              {unread > 0
+                ? `${unread} ${unread === 1 ? 'aviso sin leer' : 'avisos sin leer'}.`
+                : 'Lo que ha pasado mientras no estabas.'}
+            </p>
+          </div>
+          {unread > 0 && (
+            <div className="page-header-actions">
+              <button
+                type="button"
+                className="btn-ghost-line"
+                onClick={onMarkAllRead}
+              >
+                Marcar todas como leídas
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
 
       {notifications.length === 0 ? (
         <p style={{ fontSize: '0.85rem', color: '#bbb' }}>Sin notificaciones por ahora.</p>
@@ -2030,7 +2267,15 @@ function NotificationsSection({
 function SettingsSection({ session, onLogout }: { session: Session; onLogout: () => void }) {
   return (
     <div>
-      <div className="section-title">Ajustes</div>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <span className="page-header-eyebrow">CUENTA</span>
+            <h1 className="page-header-title">Ajustes.</h1>
+            <p className="page-header-sub">Preferencias, cuenta y privacidad.</p>
+          </div>
+        </div>
+      </header>
 
       <section className="settings-group">
         <h2>Cuenta</h2>
