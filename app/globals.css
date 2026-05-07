@@ -384,6 +384,10 @@ button:disabled {
 .auth-logo {
   margin-bottom: var(--space-10);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .auth-logo h1 {
@@ -392,6 +396,21 @@ button:disabled {
   font-weight: 500;
   letter-spacing: var(--tracking-tight);
   color: var(--color-fg);
+}
+
+.auth-logo-mark {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  display: block;
+}
+
+.auth-logo-wordmark {
+  width: auto;
+  height: 22px;
+  max-width: 240px;
+  object-fit: contain;
+  display: block;
 }
 
 .auth-page {
@@ -448,6 +467,22 @@ button:disabled {
   color: var(--color-fg);
 }
 
+.auth-header-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+}
+
+.auth-header-wordmark {
+  width: auto;
+  height: 14px;
+  max-width: 160px;
+  object-fit: contain;
+  display: block;
+}
+
 .auth-header-nav {
   display: flex;
   gap: var(--space-6);
@@ -480,6 +515,10 @@ button:disabled {
 
 .auth-brand-col-mobile {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .auth-brand-col-mobile h1 {
@@ -497,6 +536,34 @@ button:disabled {
   letter-spacing: var(--tracking-label);
   color: var(--color-fg-faint);
   margin: 0;
+}
+
+.auth-brand-mark {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  display: block;
+}
+
+.auth-brand-mark--lg {
+  width: 96px;
+  height: 96px;
+  margin-bottom: var(--space-5);
+}
+
+.auth-brand-wordmark {
+  width: auto;
+  height: 28px;
+  max-width: 280px;
+  object-fit: contain;
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.auth-brand-wordmark--lg {
+  height: 40px;
+  max-width: 360px;
+  margin-bottom: var(--space-5);
 }
 
 @media (min-width: 1024px) { .auth-brand-col-mobile { display: none; } }
@@ -768,14 +835,12 @@ button:disabled {
   gap: var(--space-2);
 }
 
-.topbar-brand::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-fg);
-  flex-shrink: 0;
+.topbar-brand-logo {
+  width: auto;
+  height: 16px;
+  max-width: 160px;
+  object-fit: contain;
+  display: block;
 }
 
 .topbar-search-wrap {
