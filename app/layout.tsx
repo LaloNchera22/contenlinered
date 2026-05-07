@@ -11,6 +11,34 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  icons: {
+    icon: [{ url: '/logo-metadata.png', type: 'image/png' }],
+    shortcut: '/logo-metadata.png',
+    apple: '/logo-metadata.png',
+  },
+  openGraph: {
+    title: 'CONTENLINE — Intellectual Social Hub',
+    description:
+      'CONTENLINE es un hub social intelectual para conectar, compartir conocimiento y crear comunidades en torno a las ideas.',
+    siteName: 'CONTENLINE',
+    locale: 'es_ES',
+    type: 'website',
+    images: [
+      {
+        url: '/logo-metadata.png',
+        width: 2000,
+        height: 2000,
+        alt: 'CONTENLINE',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'CONTENLINE — Intellectual Social Hub',
+    description:
+      'CONTENLINE es un hub social intelectual para conectar, compartir conocimiento y crear comunidades en torno a las ideas.',
+    images: ['/logo-metadata.png'],
+  },
   appleWebApp: {
     title: 'CONTENLINE',
     capable: true,

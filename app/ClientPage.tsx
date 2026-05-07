@@ -341,7 +341,16 @@ function TopBar({
       >
         <IcoMenu size={22} />
       </button>
-      <span className="topbar-brand">Contenline</span>
+      <span className="topbar-brand">
+        <img
+          className="topbar-brand-logo"
+          src="/logo-wordmark.png"
+          alt="Contenline"
+          width={2000}
+          height={2000}
+          decoding="async"
+        />
+      </span>
       <div className="topbar-search-wrap">
         <label className="topbar-search" onClick={() => searchRef.current?.focus()}>
           <span className="topbar-search-icon" aria-hidden><IcoSearch size={15} /></span>
@@ -2318,7 +2327,23 @@ function NotConfigured() {
     <div className="auth-screen">
       <div className="auth-inner">
         <div className="auth-logo">
-          <h1>Contenline.</h1>
+          <img
+            className="auth-logo-mark"
+            src="/logo-metadata.png"
+            alt=""
+            aria-hidden="true"
+            width={2000}
+            height={2000}
+            decoding="async"
+          />
+          <img
+            className="auth-logo-wordmark"
+            src="/logo-wordmark.png"
+            alt="Contenline"
+            width={2000}
+            height={2000}
+            decoding="async"
+          />
         </div>
         <div className="setup-box">
           <p><strong>La aplicación no está configurada.</strong></p>
@@ -2382,8 +2407,23 @@ function AuthPanel() {
 
         <header className="auth-header">
           <div className="auth-header-brand">
-            <span className="auth-dot" />
-            <span className="auth-header-name">Contenline</span>
+            <img
+              className="auth-header-logo"
+              src="/logo-metadata.png"
+              alt=""
+              aria-hidden="true"
+              width={2000}
+              height={2000}
+              decoding="async"
+            />
+            <img
+              className="auth-header-wordmark"
+              src="/logo-wordmark.png"
+              alt="Contenline"
+              width={2000}
+              height={2000}
+              decoding="async"
+            />
           </div>
           <nav className="auth-header-nav">
             <a href="#">Sobre</a>
@@ -2394,13 +2434,45 @@ function AuthPanel() {
 
         <div className="auth-grid">
           <div className="auth-brand-col-mobile">
-            <h1>Contenline.</h1>
+            <img
+              className="auth-brand-mark"
+              src="/logo-metadata.png"
+              alt=""
+              aria-hidden="true"
+              width={2000}
+              height={2000}
+              decoding="async"
+            />
+            <img
+              className="auth-brand-wordmark"
+              src="/logo-wordmark.png"
+              alt="Contenline"
+              width={2000}
+              height={2000}
+              decoding="async"
+            />
             <p>Hub social intelectual</p>
           </div>
 
           <div className="auth-brand-col">
             <p className="auth-version">v1.0 — Beta abierta</p>
-            <h1 className="auth-title">Contenline.</h1>
+            <img
+              className="auth-brand-mark auth-brand-mark--lg"
+              src="/logo-metadata.png"
+              alt=""
+              aria-hidden="true"
+              width={2000}
+              height={2000}
+              decoding="async"
+            />
+            <img
+              className="auth-brand-wordmark auth-brand-wordmark--lg"
+              src="/logo-wordmark.png"
+              alt="Contenline"
+              width={2000}
+              height={2000}
+              decoding="async"
+            />
             <p className="auth-tagline">
               Una red social para conectar ideas, compartir conocimiento y construir comunidades en torno a lo que importa.
             </p>
@@ -3874,7 +3946,25 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <div className="auth-screen">
           <div className="auth-inner">
-            <div className="auth-logo"><h1>Contenline.</h1></div>
+            <div className="auth-logo">
+              <img
+                className="auth-logo-mark"
+                src="/logo-metadata.png"
+                alt=""
+                aria-hidden="true"
+                width={2000}
+                height={2000}
+                decoding="async"
+              />
+              <img
+                className="auth-logo-wordmark"
+                src="/logo-wordmark.png"
+                alt="Contenline"
+                width={2000}
+                height={2000}
+                decoding="async"
+              />
+            </div>
             <div className="setup-box">
               <p><strong>Error al iniciar la aplicación</strong></p>
               <p>{this.state.error.message}</p>
