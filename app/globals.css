@@ -113,7 +113,8 @@
   --rightrail-width: 240px;
   --bottom-nav-height: 60px;
   --content-max-width: 1200px;
-  --feed-max-width: 640px;
+  --feed-max-width: 1080px;
+  --reading-max-width: 720px;
 
   /* Motion */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -1225,6 +1226,7 @@ button:disabled {
 
 .messages-list {
   max-height: none;
+  max-width: var(--reading-max-width);
   overflow-y: visible;
   border: none;
   border-radius: 0;
@@ -2869,6 +2871,581 @@ button:disabled {
   letter-spacing: 0;
   flex-shrink: 0;
   cursor: pointer;
+}
+
+
+/* =============================================================================
+   PAGE HEADER — editorial: eyebrow + big title + subtitle + right actions
+   ============================================================================= */
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+  padding-bottom: 0;
+}
+
+.page-header--compact {
+  margin-bottom: var(--space-6);
+  gap: var(--space-3);
+}
+
+.page-header-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.page-back-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--color-fg-mute) !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 400 !important;
+  padding: 0 !important;
+  letter-spacing: var(--tracking-snug) !important;
+  cursor: pointer;
+  min-height: 0 !important;
+  text-transform: none;
+  transition: color var(--dur-fast) var(--ease) !important;
+}
+
+.page-back-btn:hover {
+  color: var(--color-fg) !important;
+  background: transparent !important;
+}
+
+.page-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.page-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 640px;
+}
+
+.page-header-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-fg-mute);
+  display: inline-block;
+}
+
+.page-header-title {
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-fg);
+  margin: 0;
+  word-break: break-word;
+}
+
+.page-header-sub {
+  font-size: var(--text-md);
+  color: var(--color-fg-mute);
+  line-height: var(--lh-snug);
+  margin: 0;
+  max-width: 56ch;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  margin-left: auto;
+  padding-bottom: 4px;
+}
+
+
+/* =============================================================================
+   INLINE SEARCH (in page header)
+   ============================================================================= */
+
+.search-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  padding: 6px 0;
+  min-width: 200px;
+  max-width: 280px;
+  width: 100%;
+  cursor: text;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+.search-inline:focus-within {
+  border-bottom-color: var(--color-fg);
+}
+
+.search-inline-icon {
+  color: var(--color-fg-faint);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.search-inline input {
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  font-size: var(--text-sm) !important;
+  color: var(--color-fg) !important;
+  padding: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+  min-width: 0;
+  min-height: 0 !important;
+  box-shadow: none !important;
+  font-family: inherit;
+}
+
+.search-inline input::placeholder {
+  color: var(--color-fg-faint) !important;
+}
+
+
+/* =============================================================================
+   EDITORIAL BUTTONS — pill primary + ghost-line outlined
+   ============================================================================= */
+
+.btn-pill-primary {
+  background: var(--color-fg) !important;
+  color: var(--color-bg) !important;
+  border: 1px solid var(--color-fg) !important;
+  padding: 9px 16px !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 500 !important;
+  border-radius: var(--radius-sm) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: var(--tracking-snug);
+  min-height: 36px !important;
+  transition: background var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease) !important;
+  white-space: nowrap;
+}
+
+.btn-pill-primary:hover:not(:disabled) {
+  background: var(--color-accent-soft) !important;
+  border-color: var(--color-accent-soft) !important;
+}
+
+.btn-pill-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-ghost-line {
+  background: transparent !important;
+  color: var(--color-fg-mute) !important;
+  border: 1px solid var(--hairline) !important;
+  padding: 8px 14px !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 400 !important;
+  border-radius: var(--radius-sm) !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: var(--tracking-snug);
+  min-height: 34px !important;
+  transition: color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease) !important;
+  white-space: nowrap;
+}
+
+.btn-ghost-line:hover {
+  color: var(--color-fg) !important;
+  border-color: var(--color-border-strong) !important;
+  background: transparent !important;
+}
+
+
+/* =============================================================================
+   TABS — underline strip
+   ============================================================================= */
+
+.tabs-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: var(--space-6);
+  padding-bottom: 0;
+}
+
+.tab-line {
+  background: transparent !important;
+  border: none !important;
+  color: var(--color-fg-mute) !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 400 !important;
+  padding: 0 0 var(--space-3) !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  letter-spacing: var(--tracking-snug);
+  min-height: 0 !important;
+  position: relative;
+  text-transform: none;
+  transition: color var(--dur-fast) var(--ease) !important;
+}
+
+.tab-line:hover {
+  color: var(--color-fg) !important;
+  background: transparent !important;
+}
+
+.tab-line--active {
+  color: var(--color-fg) !important;
+  font-weight: 500 !important;
+}
+
+.tab-line--active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--color-fg);
+}
+
+
+/* =============================================================================
+   LIST COUNTER — "6 SALAS  /  ORDENADO POR ACTIVIDAD"
+   ============================================================================= */
+
+.list-counter {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.list-counter-count,
+.list-counter-sort {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-fg-mute);
+}
+
+
+/* =============================================================================
+   ROOM GRID + CARDS — editorial 2-column
+   ============================================================================= */
+
+.room-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  border-top: 1px solid var(--hairline);
+  border-left: 1px solid var(--hairline);
+  margin-bottom: var(--space-10);
+}
+
+@media (min-width: 720px) {
+  .room-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.room-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-6);
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--color-bg);
+  transition: background var(--dur-fast) var(--ease);
+  position: relative;
+  min-height: 180px;
+}
+
+.room-card:hover {
+  background: var(--color-bg-alt);
+}
+
+.room-card--match::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-fg);
+}
+
+.room-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.room-card-cat {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-fg-mute);
+}
+
+.room-card-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-fg);
+}
+
+.room-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-fg);
+  animation: pulse-live 2s ease-in-out infinite;
+}
+
+.room-card-title {
+  font-size: var(--text-xl);
+  font-weight: 500;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-snug);
+  color: var(--color-fg);
+  margin: 0;
+  word-break: break-word;
+}
+
+.room-card-desc {
+  font-size: var(--text-sm);
+  line-height: var(--lh-snug);
+  color: var(--color-fg-mute);
+  margin: 0;
+}
+
+.room-card-desc--hint {
+  font-style: italic;
+  color: var(--color-fg-faint);
+}
+
+.room-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.room-card-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-fg-mute);
+  flex-wrap: wrap;
+}
+
+.room-card-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0;
+}
+
+.room-card-stat-sep {
+  color: var(--color-fg-ghost);
+  margin: 0 2px;
+}
+
+.room-card-stat-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-fg-ghost);
+  display: inline-block;
+}
+
+.room-card-stat-dot--on {
+  background: var(--color-fg);
+  animation: pulse-live 2s ease-in-out infinite;
+}
+
+.room-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.room-card-enter {
+  background: none !important;
+  border: none !important;
+  color: var(--color-fg) !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 500 !important;
+  padding: 4px 0 !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  letter-spacing: var(--tracking-snug);
+  min-height: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  transition: opacity var(--dur-fast) var(--ease) !important;
+}
+
+.room-card-enter:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  opacity: 0.7;
+}
+
+.room-card-enter span {
+  display: inline-block;
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.room-card-enter:hover span {
+  transform: translateX(2px);
+}
+
+.room-card-del {
+  background: none !important;
+  border: none !important;
+  color: var(--color-fg-faint) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 400 !important;
+  padding: 4px 0 !important;
+  border-radius: 0 !important;
+  cursor: pointer;
+  letter-spacing: var(--tracking-snug);
+  min-height: 0 !important;
+  text-transform: none;
+  transition: color var(--dur-fast) var(--ease) !important;
+}
+
+.room-card-del:hover {
+  color: var(--color-danger) !important;
+  background: transparent !important;
+}
+
+
+/* =============================================================================
+   CREATE ROOM FORM (under page-header on rooms page)
+   ============================================================================= */
+
+.create-room-form {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.create-room-label {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-fg-mute);
+  margin-bottom: var(--space-2);
+  display: block;
+}
+
+.create-room-form input[type="text"] {
+  max-width: none;
+  width: 100%;
+  font-size: var(--text-base);
+  margin-bottom: var(--space-3);
+}
+
+.create-room-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.create-room-hint {
+  font-size: var(--text-xs);
+  color: var(--color-fg-faint);
+  letter-spacing: 0;
+}
+
+.create-room-hint strong {
+  color: var(--color-fg-mute);
+  font-weight: 500;
+}
+
+
+/* =============================================================================
+   EMPTY STATE (used on rooms page and elsewhere)
+   ============================================================================= */
+
+.empty-state {
+  padding: var(--space-10) 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  margin-bottom: var(--space-8);
+}
+
+
+/* =============================================================================
+   PAGE HEADER — responsive
+   ============================================================================= */
+
+@media (max-width: 720px) {
+  .page-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    padding-bottom: 0;
+  }
+
+  .search-inline {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  .page-header-title {
+    font-size: clamp(2rem, 8vw + 0.5rem, 2.75rem);
+  }
 }
 
 
