@@ -8,6 +8,10 @@ type FriendshipStatus = 'pending' | 'accepted' | 'rejected'
 type AttachmentType = 'pdf' | 'audio'
 type NotificationType = 'friend_request' | 'friend_accepted' | 'mention'
 type LinkType = 'github' | 'arxiv' | 'orcid' | 'linkedin' | 'twitter' | 'website'
+type Language = 'es' | 'en'
+type DmPolicy = 'anyone' | 'friends' | 'nobody'
+type ProfileVisibility = 'public' | 'friends'
+type LinksVisibility = 'public' | 'friends' | 'nobody'
 
 export type Database = {
   public: {
@@ -16,6 +20,7 @@ export type Database = {
         Row: {
           id: string
           username: string
+          display_name: string
           public_status: string
           created_at: string
           updated_at: string
@@ -23,13 +28,56 @@ export type Database = {
         Insert: {
           id: string
           username: string
+          display_name?: string
           public_status?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           username?: string
+          display_name?: string
           public_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          user_id: string
+          language: Language
+          dm_policy: DmPolicy
+          profile_visibility: ProfileVisibility
+          links_visibility: LinksVisibility
+          show_online: boolean
+          allow_mentions: boolean
+          notify_friend_requests: boolean
+          notify_mentions: boolean
+          notify_messages: boolean
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          language?: Language
+          dm_policy?: DmPolicy
+          profile_visibility?: ProfileVisibility
+          links_visibility?: LinksVisibility
+          show_online?: boolean
+          allow_mentions?: boolean
+          notify_friend_requests?: boolean
+          notify_mentions?: boolean
+          notify_messages?: boolean
+          updated_at?: string
+        }
+        Update: {
+          language?: Language
+          dm_policy?: DmPolicy
+          profile_visibility?: ProfileVisibility
+          links_visibility?: LinksVisibility
+          show_online?: boolean
+          allow_mentions?: boolean
+          notify_friend_requests?: boolean
+          notify_mentions?: boolean
+          notify_messages?: boolean
           updated_at?: string
         }
         Relationships: []

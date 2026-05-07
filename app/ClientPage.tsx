@@ -1,16 +1,57 @@
 'use client'
 
-import { useState, useEffect, useRef, FormEvent, Component, ReactNode } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, FormEvent, Component, ReactNode } from 'react'
 import { Session } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
+import {
+  Language,
+  LANGUAGES,
+  translate,
+  getStoredLanguage,
+  setStoredLanguage,
+} from '@/lib/i18n'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type AppUser = {
   id: string
   username: string
+  display_name: string
   public_status: string
 }
+
+type DmPolicy = 'anyone' | 'friends' | 'nobody'
+type ProfileVisibility = 'public' | 'friends'
+type LinksVisibility = 'public' | 'friends' | 'nobody'
+
+type UserSettings = {
+  user_id: string
+  language: Language
+  dm_policy: DmPolicy
+  profile_visibility: ProfileVisibility
+  links_visibility: LinksVisibility
+  show_online: boolean
+  allow_mentions: boolean
+  notify_friend_requests: boolean
+  notify_mentions: boolean
+  notify_messages: boolean
+  updated_at?: string
+}
+
+const DEFAULT_SETTINGS = (userId: string): UserSettings => ({
+  user_id: userId,
+  language: 'es',
+  dm_policy: 'anyone',
+  profile_visibility: 'public',
+  links_visibility: 'public',
+  show_online: true,
+  allow_mentions: true,
+  notify_friend_requests: true,
+  notify_mentions: true,
+  notify_messages: true,
+})
+
+type Translator = (key: string, vars?: Record<string, string | number>) => string
 
 type Community = {
   id: string
@@ -320,6 +361,7 @@ function TopBar({
   onNotificationsClick,
   unreadCount,
   username,
+  t,
 }: {
   searchQuery: string
   onSearchChange: (v: string) => void
@@ -329,6 +371,7 @@ function TopBar({
   onNotificationsClick: () => void
   unreadCount: number
   username: string
+  t: Translator
 }) {
   const initial = (username || '?').charAt(0).toUpperCase()
   return (
@@ -337,7 +380,7 @@ function TopBar({
         type="button"
         className="topbar-menu-btn"
         onClick={onMenuToggle}
-        aria-label="Abrir menú de navegación"
+        aria-label={t('topbar.menuOpen')}
       >
         <IcoMenu size={22} />
       </button>
@@ -354,15 +397,15 @@ function TopBar({
       <div className="topbar-search-wrap">
         <label className="topbar-search" onClick={() => searchRef.current?.focus()}>
           <span className="topbar-search-icon" aria-hidden><IcoSearch size={15} /></span>
-          <span className="sr-only">Buscar</span>
+          <span className="sr-only">{t('topbar.search')}</span>
           <input
             ref={searchRef}
             className="topbar-input"
             type="text"
-            placeholder="Buscar"
+            placeholder={t('topbar.search')}
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
-            aria-label="Buscar comunidades, publicaciones y personas"
+            aria-label={t('topbar.searchAria')}
           />
           <span className="topbar-kbd" aria-hidden>Ctrl K</span>
         </label>
@@ -372,8 +415,8 @@ function TopBar({
           type="button"
           className="topbar-icon-btn"
           onClick={onNotificationsClick}
-          aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
-          title="Notificaciones"
+          aria-label={t('topbar.notifications')}
+          title={t('topbar.notifications')}
         >
           <span className="sidebar-icon-wrap">
             <IcoBell size={18} />
@@ -388,9 +431,9 @@ function TopBar({
           type="button"
           className="topbar-link"
           onClick={onLogout}
-          title="Cerrar sesión"
+          title={t('topbar.logout')}
         >
-          Salir
+          {t('topbar.logout')}
         </button>
         <span className="topbar-avatar" aria-hidden>{initial}</span>
       </div>
@@ -400,15 +443,15 @@ function TopBar({
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────────
 
-const NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => ReactNode }[] = [
-  { section: 'communities',   label: 'Comunidades',    Icon: IcoCommunities },
-  { section: 'friends',       label: 'Amigos',         Icon: IcoFriends },
-  { section: 'messages',      label: 'Mensajes',       Icon: IcoMessages },
-  { section: 'explore',       label: 'Explorar',       Icon: IcoExplore },
-  { section: 'presence',      label: 'Salas',          Icon: IcoPresence },
-  { section: 'notifications', label: 'Notificaciones', Icon: IcoBell },
-  { section: 'profile',       label: 'Perfil',         Icon: IcoProfile },
-  { section: 'settings',      label: 'Ajustes',        Icon: IcoSettings },
+const NAV_ITEMS: { section: Section; key: string; Icon: (p: IcoProps) => ReactNode }[] = [
+  { section: 'communities',   key: 'nav.communities',   Icon: IcoCommunities },
+  { section: 'friends',       key: 'nav.friends',       Icon: IcoFriends },
+  { section: 'messages',      key: 'nav.messages',      Icon: IcoMessages },
+  { section: 'explore',       key: 'nav.explore',       Icon: IcoExplore },
+  { section: 'presence',      key: 'nav.presence',      Icon: IcoPresence },
+  { section: 'notifications', key: 'nav.notifications', Icon: IcoBell },
+  { section: 'profile',       key: 'nav.profile',       Icon: IcoProfile },
+  { section: 'settings',      key: 'nav.settings',      Icon: IcoSettings },
 ]
 
 function Sidebar({
@@ -419,6 +462,7 @@ function Sidebar({
   unreadCount,
   open,
   onClose,
+  t,
 }: {
   activeSection: Section
   onSectionChange: (s: Section) => void
@@ -427,6 +471,7 @@ function Sidebar({
   unreadCount: number
   open: boolean
   onClose: () => void
+  t: Translator
 }) {
   const handleSelect = (s: Section) => {
     onSectionChange(s)
@@ -442,29 +487,32 @@ function Sidebar({
       />
       <aside
         className={`sidebar${open ? ' sidebar--open' : ''}`}
-        aria-label="Navegación principal"
+        aria-label={t('topbar.menuOpen')}
         role="navigation"
       >
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ section, label, Icon }) => (
-            <button
-              key={section}
-              className={`sidebar-item${activeSection === section ? ' sidebar-item--active' : ''}`}
-              onClick={() => handleSelect(section)}
-              title={label}
-              aria-current={activeSection === section ? 'page' : undefined}
-            >
-              <span className="sidebar-icon-wrap">
-                <Icon />
-                {section === 'notifications' && unreadCount > 0 && (
-                  <span className="notif-badge" aria-label={`${unreadCount} sin leer`}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </span>
-              <span className="sidebar-label">{label}</span>
-            </button>
-          ))}
+          {NAV_ITEMS.map(({ section, key, Icon }) => {
+            const label = t(key)
+            return (
+              <button
+                key={section}
+                className={`sidebar-item${activeSection === section ? ' sidebar-item--active' : ''}`}
+                onClick={() => handleSelect(section)}
+                title={label}
+                aria-current={activeSection === section ? 'page' : undefined}
+              >
+                <span className="sidebar-icon-wrap">
+                  <Icon />
+                  {section === 'notifications' && unreadCount > 0 && (
+                    <span className="notif-badge" aria-label={String(unreadCount)}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+                <span className="sidebar-label">{label}</span>
+              </button>
+            )
+          })}
         </nav>
 
         <div className="sidebar-bottom">
@@ -475,10 +523,10 @@ function Sidebar({
           <button
             className="sidebar-item sidebar-item--logout"
             onClick={onLogout}
-            title="Salir"
+            title={t('topbar.logout')}
           >
             <IcoLogout />
-            <span className="sidebar-label">Salir</span>
+            <span className="sidebar-label">{t('topbar.logout')}</span>
           </button>
         </div>
       </aside>
@@ -488,45 +536,50 @@ function Sidebar({
 
 // ─── Bottom Navigation (mobile only) ─────────────────────────────────────────
 
-const BOTTOM_NAV_ITEMS: { section: Section; label: string; Icon: (p: IcoProps) => ReactNode }[] = [
-  { section: 'communities',   label: 'Inicio',    Icon: IcoCommunities },
-  { section: 'explore',       label: 'Explorar',  Icon: IcoExplore },
-  { section: 'presence',      label: 'Salas',     Icon: IcoPresence },
-  { section: 'notifications', label: 'Avisos',    Icon: IcoBell },
-  { section: 'profile',       label: 'Perfil',    Icon: IcoProfile },
+const BOTTOM_NAV_ITEMS: { section: Section; key: string; Icon: (p: IcoProps) => ReactNode }[] = [
+  { section: 'communities',   key: 'nav.home',          Icon: IcoCommunities },
+  { section: 'explore',       key: 'nav.explore',       Icon: IcoExplore },
+  { section: 'presence',      key: 'nav.rooms',         Icon: IcoPresence },
+  { section: 'notifications', key: 'nav.alerts',        Icon: IcoBell },
+  { section: 'profile',       key: 'nav.profile',       Icon: IcoProfile },
 ]
 
 function BottomNav({
   activeSection,
   onSectionChange,
   unreadCount,
+  t,
 }: {
   activeSection: Section
   onSectionChange: (s: Section) => void
   unreadCount: number
+  t: Translator
 }) {
   return (
-    <nav className="bottom-nav" aria-label="Navegación inferior">
-      {BOTTOM_NAV_ITEMS.map(({ section, label, Icon }) => (
-        <button
-          key={section}
-          type="button"
-          className={`bottom-nav-item${activeSection === section ? ' bottom-nav-item--active' : ''}`}
-          onClick={() => onSectionChange(section)}
-          aria-current={activeSection === section ? 'page' : undefined}
-          aria-label={label}
-        >
-          <span className="sidebar-icon-wrap">
-            <Icon size={20} />
-            {section === 'notifications' && unreadCount > 0 && (
-              <span className="notif-badge" aria-label={`${unreadCount} sin leer`}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </span>
-          <span>{label}</span>
-        </button>
-      ))}
+    <nav className="bottom-nav" aria-label={t('topbar.menuOpen')}>
+      {BOTTOM_NAV_ITEMS.map(({ section, key, Icon }) => {
+        const label = t(key)
+        return (
+          <button
+            key={section}
+            type="button"
+            className={`bottom-nav-item${activeSection === section ? ' bottom-nav-item--active' : ''}`}
+            onClick={() => onSectionChange(section)}
+            aria-current={activeSection === section ? 'page' : undefined}
+            aria-label={label}
+          >
+            <span className="sidebar-icon-wrap">
+              <Icon size={20} />
+              {section === 'notifications' && unreadCount > 0 && (
+                <span className="notif-badge" aria-label={String(unreadCount)}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </span>
+            <span>{label}</span>
+          </button>
+        )
+      })}
     </nav>
   )
 }
@@ -1068,6 +1121,8 @@ function FriendsSection({
   onReject,
   onRemove,
   userSkillsMap,
+  onOpenProfile,
+  t,
 }: {
   users: AppUser[]
   currentUserId: string
@@ -1077,6 +1132,8 @@ function FriendsSection({
   onReject: (friendshipId: string) => void
   onRemove: (friendshipId: string) => void
   userSkillsMap: Record<string, string[]>
+  onOpenProfile: (user: AppUser) => void
+  t: Translator
 }) {
   const [tab, setTab] = useState<'friends' | 'pending' | 'discover'>('friends')
 
@@ -1103,14 +1160,41 @@ function FriendsSection({
 
   const discover = users.filter(u => u.id !== currentUserId && !getFriendship(u.id))
 
+  function avatarFor(user: AppUser) {
+    return (
+      <button
+        type="button"
+        className="friend-avatar friend-avatar--clickable"
+        onClick={() => onOpenProfile(user)}
+        title={t('profile.viewProfile')}
+      >
+        {user.username.charAt(0).toUpperCase()}
+      </button>
+    )
+  }
+
+  function nameFor(user: AppUser) {
+    const display =
+      user.display_name && user.display_name.trim() ? user.display_name : user.username
+    return (
+      <button
+        type="button"
+        className="friend-name profile-open-btn"
+        onClick={() => onOpenProfile(user)}
+      >
+        {display !== user.username ? `${display} · @${user.username}` : `@${user.username}`}
+      </button>
+    )
+  }
+
   return (
     <div>
       <header className="page-header">
         <div className="page-header-row">
           <div className="page-header-text">
-            <span className="page-header-eyebrow">PERSONAS</span>
-            <h1 className="page-header-title">Amigos.</h1>
-            <p className="page-header-sub">Tu red cercana. Solicitudes, conexiones y descubrimientos.</p>
+            <span className="page-header-eyebrow">{t('friends.eyebrow')}</span>
+            <h1 className="page-header-title">{t('friends.title')}</h1>
+            <p className="page-header-sub">{t('friends.sub')}</p>
           </div>
         </div>
       </header>
@@ -1120,19 +1204,19 @@ function FriendsSection({
           className={`comm-tab${tab === 'friends' ? ' comm-tab--active' : ''}`}
           onClick={() => setTab('friends')}
         >
-          Amigos ({friends.length})
+          {t('friends.tabFriends')} ({friends.length})
         </button>
         <button
           className={`comm-tab${tab === 'pending' ? ' comm-tab--active' : ''}`}
           onClick={() => setTab('pending')}
         >
-          Solicitudes {incoming.length > 0 && <span className="notif-inline">{incoming.length}</span>}
+          {t('friends.tabPending')} {incoming.length > 0 && <span className="notif-inline">{incoming.length}</span>}
         </button>
         <button
           className={`comm-tab${tab === 'discover' ? ' comm-tab--active' : ''}`}
           onClick={() => setTab('discover')}
         >
-          Descubrir
+          {t('friends.tabDiscover')}
         </button>
       </div>
 
@@ -1140,17 +1224,17 @@ function FriendsSection({
         <>
           {friends.length === 0 ? (
             <p style={{ fontSize: '0.85rem', color: '#bbb' }}>
-              Aún no tienes amigos. Ve a &ldquo;Descubrir&rdquo; para enviar solicitudes.
+              {t('friends.empty')}
             </p>
           ) : (
             friends.map(({ friendship, user }) => user && (
               <div key={user.id} className="friend-item">
-                <div className="friend-avatar">{user.username.charAt(0).toUpperCase()}</div>
+                {avatarFor(user)}
                 <div className="friend-info">
-                  <div className="friend-name">@{user.username}</div>
+                  {nameFor(user)}
                   {user.public_status
                     ? <div className="friend-status">{user.public_status}</div>
-                    : <div className="friend-status" style={{ color: '#ccc' }}>Sin estado</div>
+                    : <div className="friend-status" style={{ color: '#ccc' }}>{t('profile.noStatus')}</div>
                   }
                   {(userSkillsMap[user.id] ?? []).length > 0 && (
                     <div className="skill-tags-row">
@@ -1163,9 +1247,9 @@ function FriendsSection({
                 <button
                   className="btn-ghost-sm"
                   onClick={() => onRemove(friendship.id)}
-                  title="Eliminar amistad"
+                  title={t('friends.removeTitle')}
                 >
-                  Eliminar
+                  {t('common.delete')}
                 </button>
               </div>
             ))
@@ -1176,20 +1260,20 @@ function FriendsSection({
       {tab === 'pending' && (
         <>
           {incoming.length === 0 && outgoing.length === 0 ? (
-            <p style={{ fontSize: '0.85rem', color: '#bbb' }}>No hay solicitudes pendientes.</p>
+            <p style={{ fontSize: '0.85rem', color: '#bbb' }}>{t('friends.noPending')}</p>
           ) : null}
 
           {incoming.length > 0 && (
             <>
-              <h2>Recibidas ({incoming.length})</h2>
+              <h2>{t('friends.received')} ({incoming.length})</h2>
               {incoming.map(f => {
                 const sender = users.find(u => u.id === f.requester_id)
                 if (!sender) return null
                 return (
                   <div key={f.id} className="friend-item">
-                    <div className="friend-avatar">{sender.username.charAt(0).toUpperCase()}</div>
+                    {avatarFor(sender)}
                     <div className="friend-info">
-                      <div className="friend-name">@{sender.username}</div>
+                      {nameFor(sender)}
                       {sender.public_status && <div className="friend-status">{sender.public_status}</div>}
                     </div>
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -1198,13 +1282,13 @@ function FriendsSection({
                         style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem' }}
                         onClick={() => onAccept(f.id)}
                       >
-                        <IcoCheck size={12} /> Aceptar
+                        <IcoCheck size={12} /> {t('friends.accept')}
                       </button>
                       <button
                         className="btn-ghost-sm"
                         onClick={() => onReject(f.id)}
                       >
-                        Rechazar
+                        {t('friends.reject')}
                       </button>
                     </div>
                   </div>
@@ -1215,18 +1299,18 @@ function FriendsSection({
 
           {outgoing.length > 0 && (
             <>
-              <h2 style={{ marginTop: incoming.length > 0 ? '1rem' : 0 }}>Enviadas ({outgoing.length})</h2>
+              <h2 style={{ marginTop: incoming.length > 0 ? '1rem' : 0 }}>{t('friends.sent')} ({outgoing.length})</h2>
               {outgoing.map(f => {
                 const receiver = users.find(u => u.id === f.addressee_id)
                 if (!receiver) return null
                 return (
                   <div key={f.id} className="friend-item">
-                    <div className="friend-avatar">{receiver.username.charAt(0).toUpperCase()}</div>
+                    {avatarFor(receiver)}
                     <div className="friend-info">
-                      <div className="friend-name">@{receiver.username}</div>
-                      <div className="friend-status" style={{ color: '#aaa' }}>Solicitud pendiente…</div>
+                      {nameFor(receiver)}
+                      <div className="friend-status" style={{ color: '#aaa' }}>{t('friends.pendingNote')}</div>
                     </div>
-                    <button className="btn-ghost-sm" onClick={() => onReject(f.id)}>Cancelar</button>
+                    <button className="btn-ghost-sm" onClick={() => onReject(f.id)}>{t('friends.cancel')}</button>
                   </div>
                 )
               })}
@@ -1237,15 +1321,15 @@ function FriendsSection({
 
       {tab === 'discover' && (
         <>
-          <h2>{discover.length} {discover.length === 1 ? 'persona' : 'personas'}</h2>
+          <h2>{discover.length}</h2>
           {discover.map(u => (
             <div key={u.id} className="friend-item">
-              <div className="friend-avatar">{u.username.charAt(0).toUpperCase()}</div>
+              {avatarFor(u)}
               <div className="friend-info">
-                <div className="friend-name">@{u.username}</div>
+                {nameFor(u)}
                 {u.public_status
                   ? <div className="friend-status">{u.public_status}</div>
-                  : <div className="friend-status" style={{ color: '#ccc' }}>Sin estado</div>
+                  : <div className="friend-status" style={{ color: '#ccc' }}>{t('profile.noStatus')}</div>
                 }
                 {(userSkillsMap[u.id] ?? []).length > 0 && (
                   <div className="skill-tags-row">
@@ -1260,7 +1344,7 @@ function FriendsSection({
                 style={{ padding: '0.3rem 0.7rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                 onClick={() => onSendRequest(u.id)}
               >
-                <IcoUserPlus size={12} /> Agregar
+                <IcoUserPlus size={12} /> {t('profile.addFriend')}
               </button>
             </div>
           ))}
@@ -1486,6 +1570,7 @@ function ExploreSection({
   setExploreTab,
   users,
   userSkillsMap,
+  onOpenProfile,
 }: {
   communities: Community[]
   joinedCommunityIds: Set<string>
@@ -1502,6 +1587,7 @@ function ExploreSection({
   setExploreTab: (t: 'browse' | 'saved' | 'people') => void
   users: AppUser[]
   userSkillsMap: Record<string, string[]>
+  onOpenProfile: (user: AppUser) => void
 }) {
   const [skillFilter, setSkillFilter] = useState('')
 
@@ -1685,9 +1771,22 @@ function ExploreSection({
           ) : (
             filteredUsers.map(u => (
               <div key={u.id} className="friend-item">
-                <div className="friend-avatar">{u.username.charAt(0).toUpperCase()}</div>
+                <button
+                  type="button"
+                  className="friend-avatar friend-avatar--clickable"
+                  onClick={() => onOpenProfile(u)}
+                  title="Ver perfil"
+                >
+                  {u.username.charAt(0).toUpperCase()}
+                </button>
                 <div className="friend-info">
-                  <div className="friend-name">@{u.username}</div>
+                  <button
+                    type="button"
+                    className="friend-name profile-open-btn"
+                    onClick={() => onOpenProfile(u)}
+                  >
+                    @{u.username}
+                  </button>
                   {u.public_status && <div className="friend-status">{u.public_status}</div>}
                   {(userSkillsMap[u.id] ?? []).length > 0 && (
                     <div className="skill-tags-row">
@@ -2085,6 +2184,14 @@ function PresenceSection({
   )
 }
 
+type ChatPreview = {
+  user: AppUser
+  lastMessage: string
+  lastTime: string
+  unread: boolean
+  fromMe: boolean
+}
+
 function MessagesSection({
   users,
   currentUserId,
@@ -2095,6 +2202,11 @@ function MessagesSection({
   setDmInput,
   sendDm,
   dmEndRef,
+  chatPreviews,
+  friendIds,
+  onOpenProfile,
+  t,
+  language,
 }: {
   users: AppUser[]
   currentUserId: string
@@ -2105,20 +2217,43 @@ function MessagesSection({
   setDmInput: (v: string) => void
   sendDm: (e: FormEvent) => void
   dmEndRef: React.RefObject<HTMLLIElement | null>
+  chatPreviews: ChatPreview[]
+  friendIds: Set<string>
+  onOpenProfile: (user: AppUser) => void
+  t: Translator
+  language: Language
 }) {
+  const [pickingNew, setPickingNew] = useState(false)
+
   if (activeDm) {
+    const display =
+      activeDm.display_name && activeDm.display_name.trim()
+        ? activeDm.display_name
+        : activeDm.username
     return (
       <div>
         <header className="page-header page-header--compact">
           <div className="page-header-meta">
-            <button className="page-back-btn" onClick={() => setActiveDm(null)} title="Volver">
-              ← Volver a mensajes
+            <button className="page-back-btn" onClick={() => setActiveDm(null)} title={t('common.back')}>
+              {t('messages.backToList')}
             </button>
-            <span className="page-header-eyebrow">DIRECTO</span>
+            <span className="page-header-eyebrow">{t('messages.directHeading')}</span>
           </div>
           <div className="page-header-row">
             <div className="page-header-text">
-              <h1 className="page-header-title">@{activeDm.username}</h1>
+              <h1 className="page-header-title">
+                <button
+                  type="button"
+                  className="profile-open-btn"
+                  onClick={() => onOpenProfile(activeDm)}
+                  title={t('profile.viewProfile')}
+                >
+                  @{activeDm.username}
+                </button>
+              </h1>
+              {display !== activeDm.username && (
+                <p className="page-header-sub">{display}</p>
+              )}
               {activeDm.public_status && (
                 <p className="page-header-sub">{activeDm.public_status}</p>
               )}
@@ -2129,7 +2264,7 @@ function MessagesSection({
         <ul className="messages-list">
           {dmMessages.length === 0 && (
             <li style={{ color: '#ccc', fontSize: '0.8rem', fontStyle: 'italic', border: 'none' }}>
-              Escribe el primer mensaje…
+              {t('messages.firstMessage')}
             </li>
           )}
           {dmMessages.map(m => (
@@ -2146,50 +2281,137 @@ function MessagesSection({
         <form className="inline-form" onSubmit={sendDm}>
           <input
             type="text"
-            placeholder="Escribe un mensaje privado…"
+            placeholder={t('messages.placeholder')}
             value={dmInput}
             onChange={e => setDmInput(e.target.value)}
             autoFocus
           />
-          <button type="submit" disabled={!dmInput.trim()}>Enviar</button>
+          <button type="submit" disabled={!dmInput.trim()}>{t('common.send')}</button>
         </form>
       </div>
     )
   }
 
-  const otherUsers = users.filter(u => u.id !== currentUserId)
+  const friendUsers = users.filter(u => u.id !== currentUserId && friendIds.has(u.id))
+  const activeChatIds = new Set(chatPreviews.map(c => c.user.id))
+  const friendsWithoutChat = friendUsers.filter(u => !activeChatIds.has(u.id))
 
   return (
     <div>
       <header className="page-header">
         <div className="page-header-row">
           <div className="page-header-text">
-            <span className="page-header-eyebrow">DIRECTOS</span>
-            <h1 className="page-header-title">Mensajes.</h1>
-            <p className="page-header-sub">Conversaciones privadas, uno a uno.</p>
+            <span className="page-header-eyebrow">{t('messages.eyebrow')}</span>
+            <h1 className="page-header-title">{t('messages.title')}</h1>
+            <p className="page-header-sub">{t('messages.sub')}</p>
+          </div>
+          <div className="page-header-actions">
+            <button
+              type="button"
+              className="btn-pill-primary"
+              onClick={() => setPickingNew(v => !v)}
+              disabled={friendUsers.length === 0}
+              title={friendUsers.length === 0 ? t('messages.noFriends') : t('messages.startNewChat')}
+            >
+              {pickingNew ? t('common.cancel') : t('messages.startNewChat')}
+              {!pickingNew && <IcoPlus size={12} />}
+            </button>
           </div>
         </div>
       </header>
-      {otherUsers.length === 0 ? (
-        <p style={{ fontSize: '0.85rem', color: '#bbb' }}>No hay otros usuarios aún.</p>
+
+      {pickingNew && (
+        <div className="messages-new-chat">
+          <h3 className="messages-new-chat-h">{t('messages.pickPerson')}</h3>
+          {friendsWithoutChat.length === 0 ? (
+            <p className="messages-empty-hint">
+              {friendUsers.length === 0 ? t('messages.noFriends') : '—'}
+            </p>
+          ) : (
+            <ul className="messages-pick-list">
+              {friendsWithoutChat.map(u => (
+                <li key={u.id} className="friend-item">
+                  <button
+                    type="button"
+                    className="friend-avatar friend-avatar--clickable"
+                    onClick={() => onOpenProfile(u)}
+                    title={t('profile.viewProfile')}
+                  >
+                    {u.username.charAt(0).toUpperCase()}
+                  </button>
+                  <div className="friend-info">
+                    <div className="friend-name">@{u.username}</div>
+                    {u.public_status && <div className="friend-status">{u.public_status}</div>}
+                  </div>
+                  <button
+                    className="dm-start-btn"
+                    onClick={() => {
+                      setActiveDm(u)
+                      setPickingNew(false)
+                    }}
+                  >
+                    {t('messages.message')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {chatPreviews.length === 0 ? (
+        <div className="messages-empty">
+          <p className="messages-empty-text">{t('messages.empty')}</p>
+          <p className="messages-empty-hint">{t('messages.emptyHint')}</p>
+        </div>
       ) : (
         <>
-          <h2>{otherUsers.length} {otherUsers.length === 1 ? 'persona' : 'personas'}</h2>
-          {otherUsers.map(u => (
-            <div key={u.id} className="friend-item">
-              <div className="friend-avatar">{u.username.charAt(0).toUpperCase()}</div>
-              <div className="friend-info">
-                <div className="friend-name">{u.username}</div>
-                {u.public_status
-                  ? <div className="friend-status">{u.public_status}</div>
-                  : <div className="friend-status" style={{ color: '#d8d8d8' }}>Sin estado</div>
-                }
-              </div>
-              <button className="dm-start-btn" onClick={() => setActiveDm(u)}>
-                Mensaje →
-              </button>
-            </div>
-          ))}
+          <div className="list-counter">
+            <span className="list-counter-count">
+              {chatPreviews.length === 1
+                ? t('messages.activeCountOne')
+                : t('messages.activeCount', { count: chatPreviews.length })}
+            </span>
+          </div>
+          <ul className="chat-preview-list">
+            {chatPreviews.map(({ user: u, lastMessage, lastTime, unread, fromMe }) => {
+              const display =
+                u.display_name && u.display_name.trim() ? u.display_name : u.username
+              return (
+                <li key={u.id} className={`chat-preview${unread ? ' chat-preview--unread' : ''}`}>
+                  <button
+                    type="button"
+                    className="friend-avatar friend-avatar--clickable"
+                    onClick={() => onOpenProfile(u)}
+                    title={t('profile.viewProfile')}
+                  >
+                    {u.username.charAt(0).toUpperCase()}
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-preview-body"
+                    onClick={() => setActiveDm(u)}
+                  >
+                    <div className="chat-preview-row">
+                      <span className="chat-preview-name">{display}</span>
+                      <span className="chat-preview-time">
+                        {new Date(lastTime).toLocaleString(language, {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <div className="chat-preview-snippet">
+                      {fromMe && <span className="chat-preview-you">{language === 'en' ? 'You' : 'Tú'}: </span>}
+                      {lastMessage}
+                    </div>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         </>
       )}
     </div>
@@ -2273,36 +2495,489 @@ function NotificationsSection({
   )
 }
 
-function SettingsSection({ session, onLogout }: { session: Session; onLogout: () => void }) {
+// ─── User profile modal ─────────────────────────────────────────────────────
+
+type UserProfileData = {
+  user: AppUser
+  skills: string[]
+  links: UserLink[]
+  settings: Pick<UserSettings, 'profile_visibility' | 'links_visibility' | 'dm_policy'> | null
+  isFriend: boolean
+}
+
+function UserProfileModal({
+  data,
+  currentUserId,
+  friendship,
+  onClose,
+  onSendRequest,
+  onAccept,
+  onMessage,
+  t,
+}: {
+  data: UserProfileData
+  currentUserId: string
+  friendship: Friendship | undefined
+  onClose: () => void
+  onSendRequest: (userId: string) => void
+  onAccept: (friendshipId: string) => void
+  onMessage: (user: AppUser) => void
+  t: Translator
+}) {
+  const { user, skills, links, settings, isFriend } = data
+  const isSelf = user.id === currentUserId
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  const profilePrivate = !isSelf && !isFriend && settings?.profile_visibility === 'friends'
+  const linksHidden =
+    settings?.links_visibility === 'nobody' ||
+    (!isSelf && !isFriend && settings?.links_visibility === 'friends')
+
+  const dmPolicy = settings?.dm_policy ?? 'anyone'
+  const canMessage =
+    isSelf
+      ? false
+      : dmPolicy === 'anyone' || (dmPolicy === 'friends' && isFriend)
+
+  let friendButton: ReactNode = null
+  if (!isSelf) {
+    if (isFriend) {
+      friendButton = (
+        <span className="profile-modal-tag">
+          <IcoCheck size={11} /> {t('profile.alreadyFriends')}
+        </span>
+      )
+    } else if (friendship?.status === 'pending') {
+      if (friendship.addressee_id === currentUserId) {
+        friendButton = (
+          <button className="community-join-btn" onClick={() => onAccept(friendship.id)}>
+            <IcoCheck size={12} /> {t('profile.acceptRequest')}
+          </button>
+        )
+      } else {
+        friendButton = (
+          <span className="profile-modal-tag">{t('profile.requestSent')}</span>
+        )
+      }
+    } else {
+      friendButton = (
+        <button className="community-join-btn" onClick={() => onSendRequest(user.id)}>
+          <IcoUserPlus size={12} /> {t('profile.addFriend')}
+        </button>
+      )
+    }
+  }
+
+  const display =
+    user.display_name && user.display_name.trim() ? user.display_name : user.username
+
+  return (
+    <div className="profile-modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="profile-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('profile.title')}
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="profile-modal-close"
+          onClick={onClose}
+          aria-label={t('profile.closeAria')}
+        >
+          <IcoX size={14} />
+        </button>
+
+        <div className="profile-modal-head">
+          <div className="profile-avatar-large">{user.username.charAt(0).toUpperCase()}</div>
+          <div className="profile-modal-head-info">
+            <div className="profile-modal-display">{display}</div>
+            <div className="profile-modal-handle">@{user.username}</div>
+            {!profilePrivate && user.public_status ? (
+              <div className="profile-status-text">&ldquo;{user.public_status}&rdquo;</div>
+            ) : !profilePrivate ? (
+              <div className="profile-modal-empty">{t('profile.noStatus')}</div>
+            ) : null}
+          </div>
+        </div>
+
+        {profilePrivate ? (
+          <p className="profile-modal-private-note">{t('profile.profilePrivate')}</p>
+        ) : (
+          <>
+            <section className="profile-modal-section">
+              <h3 className="profile-modal-h">{t('profile.skillsHeading')}</h3>
+              {skills.length === 0 ? (
+                <p className="profile-modal-empty">—</p>
+              ) : (
+                <div className="skill-tags-row">
+                  {skills.map(s => (
+                    <span key={s} className="skill-tag">{s}</span>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="profile-modal-section">
+              <h3 className="profile-modal-h">{t('profile.linksHeading')}</h3>
+              {linksHidden ? (
+                <p className="profile-modal-empty">{t('profile.linksPrivate')}</p>
+              ) : links.length === 0 ? (
+                <p className="profile-modal-empty">{t('profile.noLinks')}</p>
+              ) : (
+                <ul className="profile-modal-links">
+                  {links.map(l => (
+                    <li key={l.link_type}>
+                      <span className="profile-link-type">{LINK_LABELS[l.link_type]}</span>
+                      <a
+                        href={l.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="profile-link-url"
+                      >
+                        {l.url.replace(/^https?:\/\//, '')}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
+
+        {!isSelf && (
+          <div className="profile-modal-actions">
+            {friendButton}
+            <button
+              type="button"
+              className="dm-start-btn"
+              onClick={() => onMessage(user)}
+              disabled={!canMessage}
+              title={
+                !canMessage
+                  ? dmPolicy === 'friends'
+                    ? t('messages.onlyFriends')
+                    : t('messages.cannotMessage')
+                  : t('profile.sendMessage')
+              }
+            >
+              {t('profile.sendMessage')} →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Settings ───────────────────────────────────────────────────────────────
+
+function SettingsSection({
+  session,
+  onLogout,
+  currentUser,
+  settings,
+  onSaveProfile,
+  onSaveSettings,
+  t,
+  language,
+  onLanguageChange,
+}: {
+  session: Session
+  onLogout: () => void
+  currentUser: AppUser | undefined
+  settings: UserSettings
+  onSaveProfile: (input: { username?: string; display_name?: string }) => Promise<{ ok: boolean; error?: string }>
+  onSaveSettings: (patch: Partial<UserSettings>) => Promise<void>
+  t: Translator
+  language: Language
+  onLanguageChange: (l: Language) => void
+}) {
+  const [usernameDraft, setUsernameDraft] = useState(currentUser?.username ?? '')
+  const [displayNameDraft, setDisplayNameDraft] = useState(currentUser?.display_name ?? '')
+  const [profileMsg, setProfileMsg] = useState('')
+  const [profileError, setProfileError] = useState('')
+  const [savedFlash, setSavedFlash] = useState(false)
+
+  useEffect(() => {
+    setUsernameDraft(currentUser?.username ?? '')
+    setDisplayNameDraft(currentUser?.display_name ?? '')
+  }, [currentUser?.username, currentUser?.display_name])
+
+  const profileDirty =
+    usernameDraft.trim() !== (currentUser?.username ?? '').trim() ||
+    displayNameDraft.trim() !== (currentUser?.display_name ?? '').trim()
+
+  function flashSaved() {
+    setSavedFlash(true)
+    window.setTimeout(() => setSavedFlash(false), 1800)
+  }
+
+  async function handleSaveProfile(e: FormEvent) {
+    e.preventDefault()
+    setProfileMsg('')
+    setProfileError('')
+    const u = usernameDraft.trim()
+    const d = displayNameDraft.trim()
+    if (!/^[A-Za-z0-9_-]{3,32}$/.test(u)) {
+      setProfileError(t('settings.usernameInvalid'))
+      return
+    }
+    const res = await onSaveProfile({ username: u, display_name: d })
+    if (res.ok) {
+      setProfileMsg(t('settings.saved'))
+      flashSaved()
+    } else {
+      setProfileError(res.error ?? '—')
+    }
+  }
+
+  async function patch<K extends keyof UserSettings>(key: K, value: UserSettings[K]) {
+    await onSaveSettings({ [key]: value } as Partial<UserSettings>)
+    flashSaved()
+  }
+
   return (
     <div>
       <header className="page-header">
         <div className="page-header-row">
           <div className="page-header-text">
-            <span className="page-header-eyebrow">CUENTA</span>
-            <h1 className="page-header-title">Ajustes.</h1>
-            <p className="page-header-sub">Preferencias, cuenta y privacidad.</p>
+            <span className="page-header-eyebrow">{t('settings.eyebrow')}</span>
+            <h1 className="page-header-title">{t('settings.title')}</h1>
+            <p className="page-header-sub">{t('settings.sub')}</p>
           </div>
+          {savedFlash && (
+            <div className="page-header-actions">
+              <span className="settings-saved-flash">
+                <IcoCheck size={12} /> {t('settings.saved')}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
+      {/* Profile group */}
       <section className="settings-group">
-        <h2>Cuenta</h2>
+        <h2>{t('settings.profileGroup')}</h2>
+        <form onSubmit={handleSaveProfile} className="settings-form">
+          <label className="settings-field">
+            <span className="settings-label">{t('settings.usernameLabel')}</span>
+            <input
+              type="text"
+              value={usernameDraft}
+              onChange={e => setUsernameDraft(e.target.value)}
+              maxLength={32}
+              minLength={3}
+              pattern="[A-Za-z0-9_\-]+"
+              placeholder="usuario"
+            />
+            <span className="settings-help">{t('settings.usernameHelp')}</span>
+          </label>
+          <label className="settings-field">
+            <span className="settings-label">{t('settings.displayNameLabel')}</span>
+            <input
+              type="text"
+              value={displayNameDraft}
+              onChange={e => setDisplayNameDraft(e.target.value)}
+              maxLength={60}
+              placeholder={currentUser?.username ?? ''}
+            />
+            <span className="settings-help">{t('settings.displayNameHelp')}</span>
+          </label>
+          <div className="settings-actions">
+            <button type="submit" disabled={!profileDirty}>
+              {t('common.save')}
+            </button>
+            {profileDirty && (
+              <span className="settings-dirty">{t('settings.unsavedChanges')}</span>
+            )}
+            {profileMsg && <span className="settings-success">{profileMsg}</span>}
+            {profileError && <span className="error-text">{profileError}</span>}
+          </div>
+        </form>
+      </section>
+
+      <hr />
+
+      {/* Privacy group */}
+      <section className="settings-group">
+        <h2>{t('settings.privacyGroup')}</h2>
+
+        <div className="settings-radio-row">
+          <span className="settings-label">{t('settings.dmPolicy')}</span>
+          <div className="settings-radio-group">
+            {([
+              ['anyone', t('settings.dmAnyone')],
+              ['friends', t('settings.dmFriends')],
+              ['nobody', t('settings.dmNobody')],
+            ] as Array<[DmPolicy, string]>).map(([val, lbl]) => (
+              <label key={val} className={`settings-radio${settings.dm_policy === val ? ' settings-radio--active' : ''}`}>
+                <input
+                  type="radio"
+                  name="dm_policy"
+                  value={val}
+                  checked={settings.dm_policy === val}
+                  onChange={() => patch('dm_policy', val)}
+                />
+                <span>{lbl}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-radio-row">
+          <span className="settings-label">{t('settings.profileVisibility')}</span>
+          <div className="settings-radio-group">
+            {([
+              ['public', t('settings.profileVisPublic')],
+              ['friends', t('settings.profileVisFriends')],
+            ] as Array<[ProfileVisibility, string]>).map(([val, lbl]) => (
+              <label key={val} className={`settings-radio${settings.profile_visibility === val ? ' settings-radio--active' : ''}`}>
+                <input
+                  type="radio"
+                  name="profile_visibility"
+                  value={val}
+                  checked={settings.profile_visibility === val}
+                  onChange={() => patch('profile_visibility', val)}
+                />
+                <span>{lbl}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-radio-row">
+          <span className="settings-label">{t('settings.linksVisibility')}</span>
+          <div className="settings-radio-group">
+            {([
+              ['public', t('settings.linksVisPublic')],
+              ['friends', t('settings.linksVisFriends')],
+              ['nobody', t('settings.linksVisNobody')],
+            ] as Array<[LinksVisibility, string]>).map(([val, lbl]) => (
+              <label key={val} className={`settings-radio${settings.links_visibility === val ? ' settings-radio--active' : ''}`}>
+                <input
+                  type="radio"
+                  name="links_visibility"
+                  value={val}
+                  checked={settings.links_visibility === val}
+                  onChange={() => patch('links_visibility', val)}
+                />
+                <span>{lbl}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <label className="settings-toggle-row">
+          <input
+            type="checkbox"
+            checked={settings.show_online}
+            onChange={e => patch('show_online', e.target.checked)}
+          />
+          <span>{t('settings.showOnline')}</span>
+        </label>
+
+        <label className="settings-toggle-row">
+          <input
+            type="checkbox"
+            checked={settings.allow_mentions}
+            onChange={e => patch('allow_mentions', e.target.checked)}
+          />
+          <span>{t('settings.allowMentions')}</span>
+        </label>
+      </section>
+
+      <hr />
+
+      {/* Notifications group */}
+      <section className="settings-group">
+        <h2>{t('settings.notificationsGroup')}</h2>
+        <label className="settings-toggle-row">
+          <input
+            type="checkbox"
+            checked={settings.notify_friend_requests}
+            onChange={e => patch('notify_friend_requests', e.target.checked)}
+          />
+          <span>{t('settings.notifyFriends')}</span>
+        </label>
+        <label className="settings-toggle-row">
+          <input
+            type="checkbox"
+            checked={settings.notify_mentions}
+            onChange={e => patch('notify_mentions', e.target.checked)}
+          />
+          <span>{t('settings.notifyMentions')}</span>
+        </label>
+        <label className="settings-toggle-row">
+          <input
+            type="checkbox"
+            checked={settings.notify_messages}
+            onChange={e => patch('notify_messages', e.target.checked)}
+          />
+          <span>{t('settings.notifyMessages')}</span>
+        </label>
+      </section>
+
+      <hr />
+
+      {/* Language group */}
+      <section className="settings-group">
+        <h2>{t('settings.languageGroup')}</h2>
+        <div className="settings-radio-row">
+          <span className="settings-label">{t('settings.languageLabel')}</span>
+          <div className="settings-radio-group">
+            {LANGUAGES.map(({ code, nativeLabel }) => (
+              <label key={code} className={`settings-radio${language === code ? ' settings-radio--active' : ''}`}>
+                <input
+                  type="radio"
+                  name="language"
+                  value={code}
+                  checked={language === code}
+                  onChange={() => {
+                    onLanguageChange(code)
+                    patch('language', code)
+                  }}
+                />
+                <span>{nativeLabel}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <p className="settings-help" style={{ marginTop: '0.4rem' }}>
+          {t('settings.languageHelp')}
+        </p>
+      </section>
+
+      <hr />
+
+      {/* Account group (read-only) */}
+      <section className="settings-group">
+        <h2>{t('settings.accountGroup')}</h2>
         <div className="settings-row">
-          <div className="settings-label">Email</div>
+          <div className="settings-label">{t('settings.email')}</div>
           <div className="settings-value">{session.user.email}</div>
         </div>
         <div className="settings-row">
-          <div className="settings-label">ID de usuario</div>
+          <div className="settings-label">{t('settings.userId')}</div>
           <div className="settings-value" style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#bbb' }}>
             {session.user.id.slice(0, 16)}…
           </div>
         </div>
         <div className="settings-row">
-          <div className="settings-label">Sesión iniciada</div>
+          <div className="settings-label">{t('settings.lastSignIn')}</div>
           <div className="settings-value">
             {session.user.last_sign_in_at
-              ? new Date(session.user.last_sign_in_at).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+              ? new Date(session.user.last_sign_in_at).toLocaleDateString(language, {
+                  day: 'numeric', month: 'long', year: 'numeric',
+                })
               : '—'}
           </div>
         </div>
@@ -2311,9 +2986,9 @@ function SettingsSection({ session, onLogout }: { session: Session; onLogout: ()
       <hr />
 
       <section className="settings-group">
-        <h2>Sesión</h2>
+        <h2>{t('settings.sessionGroup')}</h2>
         <button className="btn-danger" onClick={onLogout}>
-          Cerrar sesión
+          {t('settings.logout')}
         </button>
       </section>
     </div>
@@ -2393,7 +3068,12 @@ function AuthPanel() {
       if (data.user) {
         const { error: insertError } = await supabase
           .from('users')
-          .insert({ id: data.user.id, username: username.trim(), public_status: '' })
+          .insert({
+            id: data.user.id,
+            username: username.trim(),
+            display_name: '',
+            public_status: '',
+          })
         if (insertError) setError(insertError.message)
       }
     }
@@ -2567,6 +3247,26 @@ function App({ session }: { session: Session }) {
   const [activeSection, setActiveSection] = useState<Section>('communities')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  const [language, setLanguageState] = useState<Language>('es')
+  useEffect(() => {
+    const stored = getStoredLanguage()
+    setLanguageState(stored)
+    if (typeof document !== 'undefined') document.documentElement.lang = stored
+  }, [])
+  const t = useCallback<Translator>((key, vars) => translate(language, key, vars), [language])
+  const setLanguage = useCallback((l: Language) => {
+    setLanguageState(l)
+    setStoredLanguage(l)
+  }, [])
+
+  const [settings, setSettings] = useState<UserSettings>(() => DEFAULT_SETTINGS(session.user.id))
+  const [otherSettingsCache, setOtherSettingsCache] = useState<
+    Record<string, Pick<UserSettings, 'profile_visibility' | 'links_visibility' | 'dm_policy'>>
+  >({})
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null)
+  const [profileModalSkills, setProfileModalSkills] = useState<string[]>([])
+  const [profileModalLinks, setProfileModalLinks] = useState<UserLink[]>([])
+
   const [users, setUsers] = useState<AppUser[]>([])
   const [communities, setCommunities] = useState<Community[]>([])
   const [activeCommunity, setActiveCommunity] = useState<Community | null>(null)
@@ -2637,9 +3337,9 @@ function App({ session }: { session: Session }) {
     async function fetchUsers() {
       const { data } = await supabase
         .from('users')
-        .select('id, username, public_status')
+        .select('id, username, display_name, public_status')
         .order('username')
-      if (data) setUsers(data)
+      if (data) setUsers(data as AppUser[])
     }
 
     fetchUsers()
@@ -2651,6 +3351,69 @@ function App({ session }: { session: Session }) {
 
     return () => { supabase.removeChannel(channel) }
   }, [supabase])
+
+  // ── Load my settings (+ ensure row exists) ─────────────────────────────────
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadSettings() {
+      const { data } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+      if (cancelled) return
+      if (data) {
+        setSettings(data as UserSettings)
+        if (data.language && data.language !== language) {
+          setLanguage(data.language as Language)
+        }
+      } else {
+        // Create the default row.
+        const fallback = DEFAULT_SETTINGS(session.user.id)
+        const stored = getStoredLanguage()
+        fallback.language = stored
+        const { data: created } = await supabase
+          .from('user_settings')
+          .upsert(fallback)
+          .select('*')
+          .single()
+        if (!cancelled && created) setSettings(created as UserSettings)
+      }
+    }
+    loadSettings()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, session.user.id])
+
+  async function saveSettings(patch: Partial<UserSettings>) {
+    setSettings(prev => ({ ...prev, ...patch }))
+    await supabase
+      .from('user_settings')
+      .upsert({ user_id: session.user.id, ...patch })
+  }
+
+  async function saveProfile(input: { username?: string; display_name?: string }) {
+    const update: { username?: string; display_name?: string } = {}
+    if (typeof input.username === 'string') update.username = input.username
+    if (typeof input.display_name === 'string') update.display_name = input.display_name
+    if (Object.keys(update).length === 0) return { ok: true }
+    const { error } = await supabase
+      .from('users')
+      .update(update)
+      .eq('id', session.user.id)
+    if (error) {
+      const msg = error.message ?? ''
+      if (msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('unique')) {
+        return { ok: false, error: translate(language, 'settings.usernameTaken') }
+      }
+      return { ok: false, error: msg }
+    }
+    setUsers(prev =>
+      prev.map(u => (u.id === session.user.id ? { ...u, ...update } as AppUser : u))
+    )
+    return { ok: true }
+  }
 
   // ── Load communities (+ real-time) ─────────────────────────────────────────
 
@@ -3745,13 +4508,135 @@ function App({ session }: { session: Session }) {
     setActiveSection(s)
   }
 
+  // ── Recent DM previews (per peer) ───────────────────────────────────────────
+
+  const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadPreviews() {
+      const { data } = await supabase
+        .from('private_messages')
+        .select('id, sender_id, receiver_id, content, created_at')
+        .or(`sender_id.eq.${session.user.id},receiver_id.eq.${session.user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(200)
+      if (cancelled || !data) return
+      const seen = new Set<string>()
+      const previews: ChatPreview[] = []
+      for (const m of data) {
+        const peerId = m.sender_id === session.user.id ? m.receiver_id : m.sender_id
+        if (seen.has(peerId)) continue
+        seen.add(peerId)
+        const peer = users.find(u => u.id === peerId)
+        if (!peer) continue
+        previews.push({
+          user: peer,
+          lastMessage: m.content,
+          lastTime: m.created_at,
+          unread: false,
+          fromMe: m.sender_id === session.user.id,
+        })
+      }
+      setChatPreviews(previews)
+    }
+    loadPreviews()
+    const ch = supabase
+      .channel('dm-previews')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'private_messages' },
+        payload => {
+          const row = payload.new as { id: string; sender_id: string; receiver_id: string; content: string; created_at: string }
+          if (row.sender_id !== session.user.id && row.receiver_id !== session.user.id) return
+          const peerId = row.sender_id === session.user.id ? row.receiver_id : row.sender_id
+          setChatPreviews(prev => {
+            const peer = users.find(u => u.id === peerId)
+            if (!peer) return prev
+            const filtered = prev.filter(c => c.user.id !== peerId)
+            return [
+              {
+                user: peer,
+                lastMessage: row.content,
+                lastTime: row.created_at,
+                unread: row.sender_id !== session.user.id,
+                fromMe: row.sender_id === session.user.id,
+              },
+              ...filtered,
+            ]
+          })
+        },
+      )
+      .subscribe()
+    return () => { cancelled = true; supabase.removeChannel(ch) }
+  }, [supabase, session.user.id, users])
+
+  const friendIds = useMemo(() => {
+    const ids = new Set<string>()
+    friendships.forEach(f => {
+      if (f.status !== 'accepted') return
+      ids.add(f.requester_id === session.user.id ? f.addressee_id : f.requester_id)
+    })
+    return ids
+  }, [friendships, session.user.id])
+
+  // ── Profile modal: load skills/links/settings for the visited user ──────────
+
+  useEffect(() => {
+    if (!profileModalUserId) {
+      setProfileModalSkills([])
+      setProfileModalLinks([])
+      return
+    }
+    let cancelled = false
+    async function loadProfile() {
+      const [{ data: skillRows }, { data: linkRows }, { data: settingsRow }] = await Promise.all([
+        supabase.from('user_skills').select('skill').eq('user_id', profileModalUserId!),
+        supabase.from('user_links').select('user_id, link_type, url').eq('user_id', profileModalUserId!),
+        supabase
+          .from('user_settings')
+          .select('profile_visibility, links_visibility, dm_policy')
+          .eq('user_id', profileModalUserId!)
+          .maybeSingle(),
+      ])
+      if (cancelled) return
+      setProfileModalSkills((skillRows ?? []).map(r => r.skill))
+      setProfileModalLinks((linkRows ?? []) as UserLink[])
+      if (settingsRow) {
+        setOtherSettingsCache(prev => ({
+          ...prev,
+          [profileModalUserId!]: settingsRow as Pick<UserSettings, 'profile_visibility' | 'links_visibility' | 'dm_policy'>,
+        }))
+      }
+    }
+    loadProfile()
+    return () => { cancelled = true }
+  }, [supabase, profileModalUserId])
+
+  function openProfile(user: AppUser) {
+    setProfileModalUserId(user.id)
+  }
+  function closeProfile() {
+    setProfileModalUserId(null)
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
 
   const unreadCount = notifications.filter(n => !n.read).length
 
+  const profileModalUser = profileModalUserId
+    ? users.find(u => u.id === profileModalUserId)
+    : undefined
+  const profileModalFriendship = profileModalUserId
+    ? friendships.find(f =>
+        (f.requester_id === session.user.id && f.addressee_id === profileModalUserId) ||
+        (f.addressee_id === session.user.id && f.requester_id === profileModalUserId)
+      )
+    : undefined
+
   return (
     <div className="app-shell">
-      <a href="#main-content" className="skip-to-content">Saltar al contenido</a>
+      <a href="#main-content" className="skip-to-content">{t('common.skipToContent')}</a>
 
       <TopBar
         searchQuery={searchQuery}
@@ -3762,6 +4647,7 @@ function App({ session }: { session: Session }) {
         onNotificationsClick={() => handleSectionChange('notifications')}
         unreadCount={unreadCount}
         username={currentUser?.username ?? session.user.email ?? '?'}
+        t={t}
       />
 
       <Sidebar
@@ -3772,6 +4658,7 @@ function App({ session }: { session: Session }) {
         unreadCount={unreadCount}
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
+        t={t}
       />
 
       <main id="main-content" className="content-area" role="main">
@@ -3834,6 +4721,8 @@ function App({ session }: { session: Session }) {
               onReject={rejectOrCancelFriendship}
               onRemove={rejectOrCancelFriendship}
               userSkillsMap={userSkillsMap}
+              onOpenProfile={openProfile}
+              t={t}
             />
           )}
           {activeSection === 'messages' && (
@@ -3847,6 +4736,11 @@ function App({ session }: { session: Session }) {
               setDmInput={setDmInput}
               sendDm={sendDm}
               dmEndRef={dmEndRef}
+              chatPreviews={chatPreviews}
+              friendIds={friendIds}
+              onOpenProfile={openProfile}
+              t={t}
+              language={language}
             />
           )}
           {activeSection === 'profile' && (
@@ -3882,6 +4776,7 @@ function App({ session }: { session: Session }) {
               setExploreTab={setExploreTab}
               users={users}
               userSkillsMap={userSkillsMap}
+              onOpenProfile={openProfile}
             />
           )}
           {activeSection === 'presence' && (
@@ -3917,7 +4812,17 @@ function App({ session }: { session: Session }) {
             />
           )}
           {activeSection === 'settings' && (
-            <SettingsSection session={session} onLogout={handleLogout} />
+            <SettingsSection
+              session={session}
+              onLogout={handleLogout}
+              currentUser={currentUser}
+              settings={settings}
+              onSaveProfile={saveProfile}
+              onSaveSettings={saveSettings}
+              t={t}
+              language={language}
+              onLanguageChange={setLanguage}
+            />
           )}
         </div>
       </main>
@@ -3926,7 +4831,31 @@ function App({ session }: { session: Session }) {
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
         unreadCount={unreadCount}
+        t={t}
       />
+
+      {profileModalUser && (
+        <UserProfileModal
+          data={{
+            user: profileModalUser,
+            skills: profileModalSkills,
+            links: profileModalLinks,
+            settings: otherSettingsCache[profileModalUser.id] ?? null,
+            isFriend: friendIds.has(profileModalUser.id),
+          }}
+          currentUserId={session.user.id}
+          friendship={profileModalFriendship}
+          onClose={closeProfile}
+          onSendRequest={async id => { await sendFriendRequest(id) }}
+          onAccept={async id => { await acceptFriendRequest(id) }}
+          onMessage={u => {
+            closeProfile()
+            setActiveDm(u)
+            setActiveSection('messages')
+          }}
+          t={t}
+        />
+      )}
     </div>
   )
 }
@@ -3998,10 +4927,13 @@ function AppRoot() {
   }, [supabase])
 
   if (loading) {
+    const lang = getStoredLanguage()
     return (
       <div className="auth-screen">
         <div className="auth-inner" style={{ textAlign: 'center' }}>
-          <p style={{ color: '#bbb', fontSize: '0.88rem' }}>Cargando…</p>
+          <p style={{ color: '#bbb', fontSize: '0.88rem' }}>
+            {translate(lang, 'common.loading')}
+          </p>
         </div>
       </div>
     )
